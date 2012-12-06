@@ -1403,6 +1403,12 @@ contains
 
 			if(submethod2 /= 'u' .and. submethod2 /= 'U' .and. .not. tau_projector_normalization_for_others) then
 				rho_out = 2*rho_out
+			else
+				! normalization to trace 1 for tau = 0
+				call calculate_dipole_excitation('g','O',rho_g,rho_O,.true.)
+				call calculate_dipole_excitation('O','E',rho_O,rho_E,.false.)
+
+				rho_out = rho_out / trace(rho_E)
 			end if
 
 !			if(get_tau_phase) then
