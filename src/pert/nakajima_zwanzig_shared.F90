@@ -105,7 +105,7 @@ module nakajima_zwanzig_shared
  			call print_error_message(-1,  'wrong type in operator_to_exc() : ')
  			stop
  		else if(type == 'O') then
- 			fromto = matmul(iblocks(1,1)%eblock%S1,fromto)
+ 			fromto = matmul(transpose(iblocks(1,1)%eblock%S1),fromto)
  		else if(type == 'E') then
  			fromto = matmul(matmul(iblocks(1,1)%eblock%S1,fromto),iblocks(1,1)%eblock%SS)
  		else if(type == '2') then
@@ -129,7 +129,7 @@ module nakajima_zwanzig_shared
  			call print_error_message(-1,  'wrong type in operator_to_exc() : ')
  			stop
  		else if(type == 'O') then
- 			fromto = matmul(iblocks(1,1)%eblock%SS,fromto)
+ 			fromto = matmul(transpose(iblocks(1,1)%eblock%SS),fromto)
  		else if(type == 'E') then
  			fromto = matmul(matmul(iblocks(1,1)%eblock%SS,fromto),iblocks(1,1)%eblock%S1)
  		else if(type == '2') then
@@ -225,6 +225,91 @@ module nakajima_zwanzig_shared
 
 	end subroutine superops_to_exc_4indexed
 
+	subroutine superops_from_exc_2indexed(fromto, type)
+		complex(dpc), dimension(:,:), intent(inout)		:: fromto
+		character											:: type
+
+		complex(dpc), dimension(size(fromto,1),size(fromto,1)) :: Xi, Xi1
+		integer											 	:: a,b,c,d
+		integer												:: NN1, NN2
+		complex(dpc), dimension(N1_from_type(type),N2_from_type(type)) :: rho
+
+		NN1 = N1_from_type(type)
+		NN2 = N2_from_type(type)
+		Xi  = 0.0_dp
+		Xi1 = 0.0_dp
+
+		do d=1, NN2
+		do c=1, NN1
+				rho = 0.0_dp
+				rho(c,d) = 1.0_dp
+
+				call operator_to_exc(rho,type)
+
+				do b=1, NN2
+				do a=1, NN1
+					Xi(SUPERINDEX_FROM_K_L(a,b,NN2),SUPERINDEX_FROM_K_L(c,d,NN2)) = rho(a,b)
+				end do
+				end do
+		end do
+		end do
+
+		call inv(Xi,Xi1)
+
+		fromto = matmul(matmul(Xi,fromto),Xi1)
+
+	end subroutine superops_from_exc_2indexed
+
+	subroutine superops_from_exc_4indexed(fromto, type)
+		complex(dpc), dimension(:,:,:,:), intent(inout)	:: fromto
+		character, intent(in)								:: type
+
+		complex(dpc), dimension(N1_from_type(type)*N2_from_type(type), N1_from_type(type)*N2_from_type(type)) :: XX
+		integer(i4b) :: i,j,k,l,  first_N, second_N
+
+		XX = 0.0_dp
+
+		first_N  = N1_from_type(type)
+		second_N = N2_from_type(type)
+
+		if(.not.(size(fromto,1) == first_N .or. size(fromto,2) == second_N .or. size(fromto,3) == first_N .or. size(fromto,4) == second_N)) then
+ 			call print_error_message(-1,  'wrong dimension in superops_to_exc_4indexed() : ')
+ 			stop
+ 		end if
+
+		do k=1, first_N
+		do l=1, second_N
+
+		do i=1, first_N
+		do j=1, second_N
+
+		XX(SUPERINDEX_FROM_K_L(i,j,second_N),SUPERINDEX_FROM_K_L(k,l,second_N)) = &
+			fromto(i,j,k,l)
+
+		end do
+		end do
+
+		end do
+		end do
+
+		call superops_from_exc(XX, type)
+
+		do k=1, first_N
+		do l=1, second_N
+
+		do i=1, first_N
+		do j=1, second_N
+
+		fromto(i,j,k,l) = XX(SUPERINDEX_FROM_K_L(i,j,second_N),SUPERINDEX_FROM_K_L(k,l,second_N))
+
+		end do
+		end do
+
+		end do
+		end do
+
+	end subroutine superops_from_exc_4indexed
+
 	subroutine superops_4indexed_to_2indexed(from, to, type)
 		complex(dpc), dimension(:,:,:,:), intent(in)		:: from
 		character, intent(in)								:: type
@@ -299,8 +384,6 @@ module nakajima_zwanzig_shared
 		end do
 
 	end subroutine superops_2indexed_to_4indexed
-<<<<<<< HEAD
-=======
 
 	subroutine redfield_from_evops(from, to, type, tstep)
 		complex(dpc), dimension(:,:,:,:,:), intent(in)	:: from

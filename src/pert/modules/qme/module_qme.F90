@@ -1,3 +1,4 @@
+#include "util_allocation.h"
 !
 !
 !
@@ -1008,50 +1009,6 @@ contains
 
 
 	!*************************************************************
-	!  Writing out evolution operators
-	!*************************************************************
-
-	subroutine write_evolution_operators(prefix,Uelement,Uelement2,res,ims,steps)
-		integer				:: Uelement, Uelement2, steps
-		double precision	:: res(:), ims(:)
-		integer	(i4b)		:: i,j
-		character(len=4)	:: no1,no2
-		character(len=50)	:: name
-		character(len=*)	:: prefix
-
-
-		if(Uelement < 10) then
-			write(no2,'(i1)')	Uelement
-		else if (Uelement < 100) then
-			write(no2,'(i2)')	Uelement
-		else
-			write(no2,'(i3)')	Uelement
-		endif
-		if(Uelement2 < 10) then
-			write(no1,'(i1)')	Uelement2
-		else if (Uelement2 < 100) then
-			write(no1,'(i2)')	Uelement2
-		else
-			write(no1,'(i3)')	Uelement2
-		endif
-
-		name = prefix // trim(no1) // '-'//trim(no2)//'.dat'
-
-		open(UNIT=22, FILE = trim(file_join(out_dir,trim(name))))
-
-		i = 1
-		do while (i <= steps)
-			if (mod(i,gt(1)) == 1) then
-				write(22,*) dt*(i-1),' ',res(i),' ',ims(i)
-			endif
-			i = i + 1
-		end do
-
-		close(UNIT=22)
-	end subroutine write_evolution_operators
-
-
-	!*************************************************************
 	!  Writing out density matrix evolution after delta-excitation
 	!*************************************************************
 
@@ -1067,7 +1024,7 @@ contains
       	real(dp) 											:: s, x, magnitude
       	complex(dpc)										:: s_c
       	integer 											:: a,b,i,j,k,l,Ublock
-      	complex(dpc), dimension(N1_from_type(type),N2_from_type(type)) 	:: rho0
+      	complex(dpc), dimension(N1_from_type(type),N2_from_type(type)) 	:: rho0, eig1, eig2
       	complex(dpc), dimension(:,:,:), allocatable 						:: rr
      	complex(dpc), dimension(:,:,:,:,:), pointer		:: actual_U
       	character(len=10)	:: cha,chb
