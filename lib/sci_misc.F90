@@ -127,7 +127,11 @@ contains
     real(dp) :: res
     integer(i4b) :: i
 
-    res = product ((/(i, i = 1, n)/))
+    !res = product ((/(i, i = 1, n)/))
+    res = 1
+    do i=2,n
+    	res  = res*i
+    end do
 
   end function factorial
 
