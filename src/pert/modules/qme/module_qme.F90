@@ -1147,9 +1147,23 @@ contains
 
 		 		write(11,*) (i-1)*dt*gt(1), real(s_c), aimag(s_c)
     	  	end do
-		end if
 
-      	close(11)
+    	  	close(11)
+
+    	  	do a = 1, N1_from_type(type)
+    	  		write(cha,'(i1)') a
+	    	  	name = 'dens_E_eigenvalue_'//trim(cha)//'.dat'
+    	  		open(11,file=trim(file_join(out_dir,trim(name))))
+
+      			do i = 1, Nt(1)
+					call spec(rr(:,:,i),eig1,eig2)
+
+			 		write(11,*) (i-1)*dt*gt(1), real(eig2(a,a)), aimag(eig2(a,a))
+    	  		end do
+
+    	  		close(11)
+    	  	end do
+		end if
 
 
       	DEALLOCATE(rr)
