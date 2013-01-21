@@ -813,7 +813,7 @@ module nakajima_zwanzig_shared
 		!   3-6
 		!   3-5
 
-		if(what /= "EN" .and. what /= "DD" .and. what /= "D2") then
+		if(what /= "EN" .and. what /= "DD" .and. what /= "D2" .and. what /= "D3") then
 			call print_error_message(-1,"Wrong 'what' variable in LHQO(...)")
 		end if
 
@@ -821,8 +821,11 @@ module nakajima_zwanzig_shared
 			LQHO_HR_LO = current_s_block%QHO_hrfact(1)
 			LQHO_HR_HI = current_s_block%QHO_hrfact(4)
 		elseif(what == 'D2') then
-			LQHO_HR_LO = 0.2
-			LQHO_HR_HI = 0.3
+			LQHO_HR_LO = current_s_block%QHO_hrfact(2)
+			LQHO_HR_HI = current_s_block%QHO_hrfact(3)
+		elseif(what == 'D3') then
+            LQHO_HR_LO = current_s_block%QHO_hrfact(5)
+            LQHO_HR_HI = current_s_block%QHO_hrfact(6)
 		end if
 
 		nav = 0.0_dp
@@ -845,7 +848,7 @@ module nakajima_zwanzig_shared
 				nav = LQHO_freq_HI*2
 			end if
 
-		elseif(what == 'DD' .or. what == 'D2') then
+		elseif(what == 'DD' .or. what == 'D2' .or. what == 'D3') then
 			if(.not.present(in2)) then
 				call print_error_message(-1, "third argument must be given for 'DD' in  LQHO()")
 			end if
@@ -1103,10 +1106,10 @@ module nakajima_zwanzig_shared
 				d1 = sqrt(2*current_s_block%QHO_hrfact(5)/current_s_block%QHO_freq(5))
 				aa = a - 4*Ncar
 				bb = b
-				dd2(a,b) = current_s_block%dd(5,1)*LQHO(aa,"D2",bb)
-				dx2(a,b) = current_s_block%dx(5,1)*LQHO(aa,"D2",bb)
-				dy2(a,b) = current_s_block%dy(5,1)*LQHO(aa,"D2",bb)
-				dz2(a,b) = current_s_block%dz(5,1)*LQHO(aa,"D2",bb)
+				dd2(a,b) = current_s_block%dd(5,1)*LQHO(aa,"D3",bb)
+				dx2(a,b) = current_s_block%dx(5,1)*LQHO(aa,"D3",bb)
+				dy2(a,b) = current_s_block%dy(5,1)*LQHO(aa,"D3",bb)
+				dz2(a,b) = current_s_block%dz(5,1)*LQHO(aa,"D3",bb)
 			elseif(a > 2*Ncar .and. a <= 3*Ncar .and. b > 2*Ncar .and. b <= 3*Ncar) then ! QxS2-Qx
 				dd2(a,b) = dd(a-2*Ncar,b-2*Ncar)
 				dx2(a,b) = dx(a-2*Ncar,b-2*Ncar)
