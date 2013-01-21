@@ -939,12 +939,12 @@ module nakajima_zwanzig_shared
 		logical :: evops_runge_kutta
 
 		if(size(current_s_block%QHO_lvls) /= 6) then
-			call print_error_message(-1, "prepare_very_specific_site_ops, wrong number of transitions (!= 5)")
+			call print_error_message(-1, "prepare_very_specific_site_ops, wrong number of transitions (!= 6)")
 		end if
 
-		if(current_s_block%QHO_lvls(1) /= current_s_block%QHO_lvls(2) .or. current_s_block%QHO_lvls(2) /= current_s_block%QHO_lvls(3)) then
-			call print_error_message(-1, "transition 1, 2 and 3 have to have the same number of levels")
-		end if
+		!if(current_s_block%QHO_lvls(1) /= current_s_block%QHO_lvls(2) .or. current_s_block%QHO_lvls(2) /= current_s_block%QHO_lvls(3)) then
+		!	call print_error_message(-1, "transition 1, 2 and 3 have to have the same number of levels")
+		!end if
 
 		!
 		! Ne block:
