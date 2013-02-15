@@ -53,6 +53,7 @@ module module_montecarlo
  	complex(dpc), dimension(:,:,:), allocatable, private 	:: rho, rho_coherent
  	complex(dpc), dimension(:,:,:,:), allocatable, private 	:: rho_micro
  	integer(i4b), dimension(:,:), allocatable, private		:: rho_micro_N
+ 	real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 0.5_dp
 
  	integer(i1b), dimension(:,:,:), allocatable 	:: trajectory_depository
 ! 	integer(i4b), dimension(:,:), allocatable 	:: factor_depository
@@ -612,7 +613,7 @@ module module_montecarlo
 		if(sum(J_coupl) < 1e-5) then
 			timeStep = (dt*gt(1))/RUNS
 		else	
-			timeStep = jumps_in_one_run/sum(J_coupl)/STEPS
+			timeStep = jumps_in_one_run/sum(J_coupl)/CoherentFactorMultiplierToLowerJumpProb/STEPS
 
 			if(timeStep > (dt*gt(1))/RUNS) then
 				timeStep = (dt*gt(1))/RUNS
@@ -621,9 +622,9 @@ module module_montecarlo
 			end if
 		end if
 
-		jumps_in_one_run = timeStep*sum(J_coupl)*STEPS
+		jumps_in_one_run = timeStep*sum(J_coupl)*CoherentFactorMultiplierToLowerJumpProb*STEPS
 
-		p_of_no_jump = (1.0_dp - timeStep*sum(J_coupl))**STEPS
+		p_of_no_jump = (1.0_dp - timeStep*sum(J_coupl)*CoherentFactorMultiplierToLowerJumpProb)**STEPS
 		 
 
 		ALLOCATE(rho,(Nl,Nl,STEPS*RUNS))
@@ -714,7 +715,7 @@ module module_montecarlo
 		If_cor 		= 0.0_dp
 		fIf_cor 	= 0.0_dp
 
-		write(buff,'(f12.3)') sum(J_coupl)*STEPS*timeStep
+		write(buff,'(f12.3)') sum(J_coupl)*STEPS*timeStep*CoherentFactorMultiplierToLowerJumpProb
 		buff = 'Averagely ' // trim(buff) // ' jumps in one run'
 		call print_log_message(trim(buff),5)
 
@@ -1125,11 +1126,12 @@ module module_montecarlo
 
 				if(side == 1) then
 					cumulative_probability = cumulative_probability + &
-												J_coupl(trajectory(1,i), a)*timeStep
+												J_coupl(trajectory(1,i), a)*timeStep*CoherentFactorMultiplierToLowerJumpProb
 
 					if(cumulative_random < cumulative_probability) then
 						trajectory(1,i+1) = a
-						factor_out(i+1) = factor_out(i)*cmplx(0,1,dpc)										*(-1) !hack, ale spravne
+						factor_out(i+1) = factor_out(i)*cmplx(0,1,dpc)/CoherentFactorMultiplierToLowerJumpProb &
+																*(-1) !hack, ale spravne
 						if(.not. modified_unraveling2) then
 							factor_out(1:i) = 0.0_dp
 						end if
@@ -1137,11 +1139,11 @@ module module_montecarlo
 					end if
 				else
 					cumulative_probability = cumulative_probability + &
-												J_coupl(a, trajectory(2,i))*timeStep
-
+												J_coupl(a, trajectory(2,i))*timeStep*CoherentFactorMultiplierToLowerJumpProb
 					if(cumulative_random < cumulative_probability) then
 						trajectory(2,i+1) = a
-						factor_out(i+1) = factor_out(i)*cmplx(0,-1,dpc)										*(-1) !hack, ale spravne
+						factor_out(i+1) = factor_out(i)*cmplx(0,-1,dpc)/CoherentFactorMultiplierToLowerJumpProb &
+																*(-1) !hack, ale spravne
 						if(.not. modified_unraveling2) then
 							factor_out(1:i) = 0.0_dp
 						end if
@@ -1161,12 +1163,12 @@ module module_montecarlo
 			cumulative_probability = 0.0_dp
 			do a=1,Nl
 				cumulative_probability = cumulative_probability + &
-												J_coupl(i0, a)*timeStep
+												J_coupl(i0, a)*timeStep*CoherentFactorMultiplierToLowerJumpProb
 			end do
 			if(.not. only_coherences) then
 				do a=1,Nl
 					cumulative_probability = cumulative_probability + &
-													J_coupl(a, j0)*timeStep
+												J_coupl(a, j0)*timeStep*CoherentFactorMultiplierToLowerJumpProb
 				end do
 			end if
 
