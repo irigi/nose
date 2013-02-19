@@ -62,7 +62,7 @@ module module_montecarlo
 	complex, dimension(:), allocatable :: MC_polar_1
     real, dimension(:), allocatable    :: MC_spect_abs
 
-    logical, parameter :: only_coherences = .true.
+    logical, parameter :: only_coherences = .false.
 
 	real(dp), private :: dom, oma
 	integer(i4b), private :: NFFT, padfac
@@ -81,7 +81,6 @@ module module_montecarlo
 	private::generate_trajectory
 	private::generate_trajectory_re
 	private::generate_trajectory_cmplx
-!	private::generate_trajectory_backwards
 	private::goft_site
 	private::hoft_site
 	private::calculate_Gfactor_from_trajectory_history
@@ -91,7 +90,6 @@ module module_montecarlo
 	private::perform_montecarlo
 	private::create_spect_abs
 
-!	private::get_dimer_gamma_evol
 	private::get_coherent_dynamics
 	private::seam_superoperators_U
 
