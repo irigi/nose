@@ -53,7 +53,7 @@ module module_montecarlo
  	complex(dpc), dimension(:,:,:), allocatable, private 	:: rho, rho_coherent
  	complex(dpc), dimension(:,:,:,:), allocatable, private 	:: rho_micro
  	integer(i4b), dimension(:,:), allocatable, private		:: rho_micro_N
- 	real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 5.0_dp
+ 	real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 1.0_dp
 
  	integer(i1b), dimension(:,:,:), allocatable 	:: trajectory_depository
 ! 	integer(i4b), dimension(:,:), allocatable 	:: factor_depository
