@@ -1906,38 +1906,42 @@ module module_montecarlo
 
 
                     ! hh between bra and ket brackets of the same i (4 terms => 6 pairs)
-                    if(ket_i == bra_i .and. .not. only_coherences) then
+                    ! ket_i == bra_i
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(ket_i,bra_i,time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H1', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, bra_i
                                 end if
                     endif
-                    if(ket_i == bra_i_ .and. .not. only_coherences) then
+                    ! ket_i == bra_i_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(-hoft_general(ket_i,ket_i,time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H2', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, bra_i_
                                 end if
                     endif
-                    if(ket_i_ == bra_i .and. .not. only_coherences) then
+                    ! ket_i_ == bra_i
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(-hoft_general(bra_i,bra_i,time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H3', real(additive_factor), k, i, time, time_i, last_round_i, ket_i_, bra_i
                                 end if
                     endif
-                    if(ket_i_ == bra_i_ .and. .not. only_coherences) then
+                    ! ket_i_ == bra_i_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(bra_i_,bra_i_,&
                                                                             time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H4', real(additive_factor), k, i, time, time_i, last_round_i, ket_i_, bra_i_
                                 end if
                     endif
-                    if(ket_i == ket_i_) then
+                    ! ket_i == ket_i_
                         additive_factor = additive_factor+(hoft_general(ket_i,ket_i,time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
                                 end if
-                    endif
-                    if(bra_i == bra_i_ .and. .not. only_coherences) then
+                    ! bra_i == bra_i_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(bra_i,bra_i,time_i,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor_H6', real(additive_factor), k, i, time, time_i, last_round_i, bra_i, bra_i
@@ -1963,7 +1967,8 @@ module module_montecarlo
                                 end if
                     end if
 
-                    if(bra_i == ket_i .and. .not. only_coherences) then
+                    ! bra_i == ket_i
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(bra_i,bra_i,time_i,time_i))
 
                                 if(debug_G) then
@@ -1981,97 +1986,109 @@ module module_montecarlo
                     bra_j_ = jumps_tovalue_bra(j-1)
 
                     ! hh between all combinations of i-j pairs
-                    if(ket_i == ket_j .and. .not. last_round_i) then
+                    ! ket_i == ket_j
+                    if(.not. last_round_i) then
                         additive_factor = additive_factor+(-hoft_general(ket_j,ket_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor1', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i_ == ket_j) then
+                    ! ket_i_ == ket_j
                         additive_factor = additive_factor+(hoft_general(ket_j,ket_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor2', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
-                    endif
-                    if(bra_i == ket_j .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! bra_i == ket_j
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(hoft_general(ket_j,ket_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor3', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i_ == ket_j .and. .not. only_coherences) then
+                    ! bra_i_ == ket_j
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(-hoft_general(ket_j,ket_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor4', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i == ket_j_ .and. .not. last_round_i) then
+                    ! ket_i == ket_j_
+                    if(.not. last_round_i) then
                         additive_factor = additive_factor+(hoft_general(ket_j_,ket_j_,time_j,+time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor5', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i_ == ket_j_) then
+                    ! ket_i_ == ket_j_
                         additive_factor = additive_factor+(-hoft_general(ket_j_,ket_j_,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor6', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
-                    endif
-                    if(bra_i == ket_j_ .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! bra_i == ket_j_
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(-hoft_general(ket_j_,ket_j_,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor7', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i_ == ket_j_ .and. .not. only_coherences) then
+                    ! bra_i_ == ket_j_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(ket_j_,ket_j_,time_j,+time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor8', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i == bra_j_ .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! ket_i == bra_j_
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(-hoft_general(bra_j_,bra_j_,time_i,time_j))
                                 if(debug_G) then
                                     write(*,*) 'factor9', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i_ == bra_j_ .and. .not. only_coherences) then
+                    ! ket_i_ == bra_j_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(bra_j_,bra_j_,time_i,time_j))
                                 if(debug_G) then
                                     write(*,*) 'factor10', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i == bra_j_ .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! bra_i == bra_j_
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(hoft_general(bra_j_,bra_j_,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor11', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i_ == bra_j_ .and. .not. only_coherences) then
+                    ! bra_i_ == bra_j_
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(-hoft_general(bra_j_,bra_j_,time_j,+time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor12', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i == bra_j .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! ket_i == bra_j
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(hoft_general(bra_j,bra_j,time_i,time_j))
                                 if(debug_G) then
                                     write(*,*) 'factor13', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(ket_i_ == bra_j .and. .not. only_coherences) then
+                    ! ket_i_ == bra_j
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(-hoft_general(bra_j,bra_j,time_i,time_j))
                                 if(debug_G) then
                                     write(*,*) 'factor14', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i == bra_j .and. .not. only_coherences .and. .not. last_round_i) then
+                    ! bra_i == bra_j
+                    if(.not. only_coherences .and. .not. last_round_i) then
                         additive_factor = additive_factor+(-hoft_general(bra_j,bra_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor15', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
-                    if(bra_i_ == bra_j .and. .not. only_coherences) then
+                    ! bra_i_ == bra_j
+                    if(.not. only_coherences) then
                         additive_factor = additive_factor+(hoft_general(bra_j,bra_j,time_j,time_i))
                                 if(debug_G) then
                                     write(*,*) 'factor16', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
