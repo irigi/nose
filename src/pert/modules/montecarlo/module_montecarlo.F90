@@ -86,8 +86,9 @@ module module_montecarlo
 	private::calculate_Gfactor_from_trajectory_history
     private::goft_general
     private::hoft_general
-    private::Vhoft_general
-    private::hoftV_general
+    private::Vh_general
+    private::hV_general
+    private::VV_general
 	private::calculate_Gfactor_from_trajectory_history_general_basis
 	private::calculate_Ifactor_from_trajectory_history
 	private::next_step_of_trajectory
@@ -974,6 +975,84 @@ module module_montecarlo
 		end if
 
 	end function hoft_site
+
+	    recursive function goft_general(m,n,t) result(dgoft)
+        real(dp), intent(in)        :: t
+        integer(i4b), intent(in)    :: m,n
+        complex(dpc)                :: dgoft
+        integer (i4b)               :: a, t_index
+        character(len=300)          :: buff
+
+        if(t < 0) then
+            dgoft = conjg(goft_site(n,m,-t))
+            return
+        end if
+
+        t_index = INT(t/dt)+1
+
+        dgoft = 0.0_dp
+
+        if(m == n) then
+
+            if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex)) then
+                write(buff,'(i2)') m
+                buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
+                call print_error_message(-1,buff)
+                stop
+            end if
+
+            if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
+                write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
+                call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
+                stop
+            end if
+
+            dgoft = all_goft(iblocks(1,1)%sblock%gindex(m))%gg(t_index)
+
+        end if
+
+    end function goft_general
+
+    recursive function hoft_general(m,n,t1,t2) result(dgoft)
+    ! hoft(a,a,t1,t2) = hoft(a,a,-t2,-t1)
+        real(dp), intent(in)        :: t1,t2
+        integer(i4b), intent(in)    :: m,n
+        complex(dpc)                :: dgoft
+
+        dgoft = 0.0_dp
+
+        if(m == n) then
+            dgoft = goft_site(m,m,t1) - goft_site(m,m,t1-t2) + goft_site(m,m,-t2)
+        end if
+
+    end function hoft_general
+
+    recursive function hV_general(i,   m,n,th,tV) result(res)
+        real(dp), intent(in)        :: th,tV
+        integer(i4b), intent(in)    :: m,n,i
+        complex(dpc)                :: res
+
+        res = 0.0_dp
+
+    end function hV_general
+
+    recursive function Vh_general(m,n,   i,tV,th) result(res)
+        real(dp), intent(in)        :: th,tV
+        integer(i4b), intent(in)    :: m,n,i
+        complex(dpc)                :: res
+
+        res = 0.0_dp
+
+    end function Vh_general
+
+    recursive function VV_general(m,n,   i,j,t1,t2) result(res)
+        real(dp), intent(in)        :: t1,t2
+        integer(i4b), intent(in)    :: m,n,i,j
+        complex(dpc)                :: res
+
+        res = 0.0_dp
+
+    end function VV_general
 
 	!
 	! Generates trajectory with STEPS steps and related pure-coupling-factors
@@ -1905,8 +1984,7 @@ module module_montecarlo
                                 end if
                     end if
 
-
-                    ! hh between bra and ket brackets of the same i (4 terms => 6 pairs)
+                    ! hh between bra and ket brackets of the same i (4 terms: C(4,2) => 6 pairs)
                         ! ket_i == ket_i_
                         additive_factor = additive_factor + (hoft_general(ket_i_,ket_i,time_i,time_i))
                                 if(debug_G) then
@@ -1946,11 +2024,68 @@ module module_montecarlo
                     endif
 
                     ! hV, Vh between bra and ket brackets of the same i (4 h-terms, 2 V-terms => 8 pairs)
+                        ! ket_i == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (Vh_general(ket_i_,ket_i,   ket_i,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i_ == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (hV_general(ket_i_,   ket_i_,ket_i,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                    if(.not. only_coherences) then
+                        ! bra_i == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (Vh_general(ket_i_,ket_i,   bra_i,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i_ == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (Vh_general(ket_i_,ket_i,   bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (hV_general(bra_i,   bra_i,bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i_ == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (Vh_general(bra_i,bra_i_,   bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (hV_general(ket_i,   bra_i,bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i_ == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (hV_general(ket_i_,   bra_i,bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+
 
                     ! VV term
+                        additive_factor = additive_factor + (VV_general(ket_i_,ket_i,   bra_i,bra_i_,time_i,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                    end if
+
 
                 ! one additional factor where bra and kets meet
-                else
+                else ! not last round
                     additive_factor = additive_factor+conjg((-goft_general(ket_i,ket_i,time_i)))
                             if(debug_G) then
                                 write(*,*) 'factor_g--', real(additive_factor), k, i, time, time_i, last_round_i, ket_i
@@ -1971,6 +2106,8 @@ module module_montecarlo
                                     write(*,*) 'factor_h (last)', real(additive_factor), k, i, time, time_i, last_round_i
                                 end if
                     end if
+
+                    ! no V-terms here, I guess
                 end if
 
 
@@ -1981,9 +2118,8 @@ module module_montecarlo
                     ket_j_ = jumps_tovalue_ket(j-1)
                     bra_j_ = jumps_tovalue_bra(j-1)
 
-                    ! hh between all combinations of i-j pairs
-                    ! the correct ordering is:
-                    !        ket_j, ket_j_, ket_i, ket_i_, bra_i_, bra_i, bra_j_, bra_j
+                    ! hh between all combinations of i-j pairs (8 terms: C(8,2) - 2*C(4,2)  => 16 pairs)
+                    ! the correct ordering is:  ket_j, ket_j_, ket_i, ket_i_, bra_i_, bra_i, bra_j_, bra_j
                         ! ket_i_ == ket_j
                         additive_factor = additive_factor + (hoft_general(ket_j,ket_i_,time_j,time_i))
                                 if(debug_G) then
@@ -2083,6 +2219,136 @@ module module_montecarlo
                                     write(*,*) 'factor15', real(additive_factor), k, i, j, time, time_i, time_j, last_round_i
                                 end if
                     endif
+
+
+
+
+                    ! hV, Vh between bra and ket brackets of the same i (8 h-terms, 4 V-terms, 8 x 4 - 2*8 => 16 pairs)
+                        ! ket_i == V(ket_j_,ket_j)
+                        additive_factor = additive_factor + (Vh_general(ket_j_,ket_j,   ket_i,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i_ == V(ket_j_,ket_j)
+                        additive_factor = additive_factor + (Vh_general(ket_j_,ket_j,   ket_i_,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_j == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (hV_general(ket_j,   ket_i_,ket_i,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_j_ == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (hV_general(ket_j_,   ket_i_,ket_i,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                    if(.not. only_coherences) then
+                        ! bra_j == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (Vh_general(ket_i_,ket_i,   bra_j,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_j_ == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (Vh_general(ket_i_,ket_i,   bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_j == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (Vh_general(bra_i,bra_i_,   bra_j,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_j_ == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (Vh_general(bra_i,bra_i_,   bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_j == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (hV_general(ket_j,   bra_i,bra_i_,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_j_ == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (hV_general(ket_j_,   bra_i,bra_i_,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i == V(ket_j_,ket_j)
+                        additive_factor = additive_factor + (Vh_general(ket_j_,ket_j,   bra_i,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i_ == V(ket_j_,ket_j)
+                        additive_factor = additive_factor + (Vh_general(ket_j_,ket_j,   bra_i_,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i == V(bra_j,bra_j_)
+                        additive_factor = additive_factor + (hV_general(bra_i,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! bra_i_ == V(bra_j,bra_j_)
+                        additive_factor = additive_factor + (hV_general(bra_i_,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i == V(bra_j,bra_j_)
+                        additive_factor = additive_factor + (hV_general(ket_i,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! ket_i_ == V(bra_j,bra_j_)
+                        additive_factor = additive_factor + (hV_general(ket_i_,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+
+
+                    ! VV terms C(4,2) - 2 = 4
+                        ! V(ket_j_,ket_j) == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (VV_general(ket_j_,ket_j,   ket_i_,ket_i,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! V(bra_j,bra_j_) == V(ket_i_,ket_i)
+                        additive_factor = additive_factor + (VV_general(ket_i_,ket_i,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! V(ket_j_,ket_j) == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (VV_general(ket_j_,ket_j,   bra_i,bra_i_,time_j,time_i))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                        ! V(bra_j,bra_j_) == V(bra_i,bra_i_)
+                        additive_factor = additive_factor + (VV_general(bra_i,bra_i_,   bra_j,bra_j_,time_i,time_j))
+                                !if(debug_G) then
+                                !    write(*,*) 'factor_H5', real(additive_factor), k, i, time, time_i, last_round_i, ket_i, ket_i
+                                !end if
+
+                    end if
 
                 end do
 
