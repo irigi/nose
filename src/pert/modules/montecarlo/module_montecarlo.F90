@@ -811,7 +811,7 @@ module module_montecarlo
 				end if
 
 				if(g_functions) then
-					call calculate_Gfactor_from_trajectory_history(draha,cmplx(1,0,dp),Gfactor) !
+					call calculate_Gfactor_from_trajectory_history_general_basis(draha,cmplx(1,0,dp),Gfactor) !
 				end if
 
 				call calculate_Ifactor_from_trajectory_history(draha,cmplx(1,0,dp),Ifactor)
