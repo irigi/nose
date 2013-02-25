@@ -163,7 +163,7 @@ module resources
     type site_goft
         integer                                      :: id
         integer                                      :: nr_modes
-        character(len=32), dimension(:), pointer :: types => NULL()
+        character(len=128), dimension(:), pointer :: types => NULL()
         real(dp)                                     :: lambda  ! total reorganization energy
         real(dp), dimension(:,:), pointer         :: params => NULL()
         complex(dpc), dimension(:), pointer       :: gt => NULL()	! g(t)

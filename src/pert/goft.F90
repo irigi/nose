@@ -374,7 +374,12 @@ contains
 
             else if (trim(tp(i)) == "BROWNIAN_LOW_TEMP_HIERARCHY") then
 
-                call brownian_low_temp_hierarchy(params(1:2,i),ggt,cct,hht,ll,ADD="yes")
+                call brownian_low_temp_hierarchy(params(1:2,i),ggt,cct,hht,ll,ADD="yes",delta=.false.)
+                lambda = lambda + ll
+
+           else if (trim(tp(i)) == "BROWNIAN_LOW_TEMP_HIERARCHY_DELTA") then
+
+                call brownian_low_temp_hierarchy(params(1:2,i),ggt,cct,hht,ll,ADD="yes",delta=.true.)
                 lambda = lambda + ll
 
             else if (trim(tp(i)) == "DELTA") then
@@ -890,8 +895,9 @@ contains
     !    x = beta hbar Lambda/2
     !    T = 2 t / beta hbar
     !    C(Lambda, ll, t) = Lambda ll CC(T,x)
-    function dimensionless_CC_LTH(T,x) result(CC)
+    function dimensionless_CC_LTH(T,x,delta) result(CC)
         real(dp), intent(in)        :: x, T
+        logical, intent(in)           :: delta
         complex(dpc)                :: CC
 
         real(dp)                         :: diff
@@ -901,16 +907,19 @@ contains
         CC =      exp(-T*x)*((3*x*x - PI_D * PI_D)/(x*x*x - x*PI_D*PI_D)     -     cmplx(0,1,dpc))
 
         ! first non-delta matsubara term
-        CC = CC + exp(- PI_D*T)*(1.0_dp/(x+PI_D)-1.0_dp/(x-PI_D))
+        if(.not. delta) then
+            CC = CC + exp(- PI_D*T)*(1.0_dp/(x+PI_D)-1.0_dp/(x-PI_D))
+        end if
 
     end function dimensionless_CC_LTH
 
-    subroutine brownian_low_temp_hierarchy(params,ggt,cct,hht,lambda,ADD)
+    subroutine brownian_low_temp_hierarchy(params,ggt,cct,hht,lambda,ADD,delta)
         real(dp), dimension(:), intent(in)      :: params
         complex(dpc), dimension(:), pointer     :: ggt
         complex(dpc), dimension(:), pointer     :: cct,hht
         real(dp), intent(out)                       :: lambda
         character(len=*), intent(in), optional  :: ADD
+        logical, intent(in)                             :: delta
 
         complex(dpc), dimension(size(ggt))  :: cct_tmp,hht_tmp,ggt_tmp
         real(dp)                                :: BH, LLambda,t
@@ -929,7 +938,7 @@ contains
         do i=1, Ntt
             t = (i-1)*dt
 
-            cct_tmp(i) = lambda*LLambda*dimensionless_CC_LTH(2.0*t/BH, BH*LLambda/2.0)
+            cct_tmp(i) = lambda*LLambda*dimensionless_CC_LTH(2.0*t/BH, BH*LLambda/2.0,delta)
             if(i > 1) then
                 hht_tmp(i) = hht_tmp(i-1) + dt*cct_tmp(i)
                 ggt_tmp(i) = ggt_tmp(i-1) + dt*hht_tmp(i)
@@ -937,10 +946,14 @@ contains
                 hht_tmp(i) = dt*cct_tmp(i)
                 ggt_tmp(i) = dt*hht_tmp(i)
             end if
+        end do
 
             ! delta-function part of the CF
-            !hht_tmp(i) = hht_tmp(i) + lambda*LLambda*2/(PI_D*PI_D - (BH*LLambda/2.0)*(BH*LLambda/2.0))
-            !ggt_tmp(i) = ggt_tmp(i) + lambda*LLambda*2/(PI_D*PI_D - (BH*LLambda/2.0)*(BH*LLambda/2.0))*t
+        do i=1, Ntt
+            if(delta) then
+                hht_tmp(i) = hht_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))
+                ggt_tmp(i) = ggt_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))*t
+            end if
         end do
 
         ! write to global functions
