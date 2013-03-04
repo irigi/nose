@@ -151,8 +151,6 @@ module module_montecarlo
 		call print_log_message(cbuff, 5)
 		write(cbuff, '(A L)') "Depository ", depository
 		call print_log_message(cbuff, 5)
-		write(cbuff, '(A L)') "Variant360 ", variant360
-		call print_log_message(cbuff, 5)
 		write(cbuff, '(A L)') "FastG ", vynechani_G_ifu
 		call print_log_message(cbuff, 5)
 
@@ -591,12 +589,8 @@ module module_montecarlo
 		TRAJECTORIES_STORED = min(TRAJECTORIES, 1000)
 		RUNS = gt(2)
 		jumps_in_one_run = gt(3)
-		if(variant360) then
-			MICROGROUP = 360
-		else
-			MICROGROUP = TRAJECTORIES/(10**Nt(3))
-		end if
 
+		MICROGROUP = TRAJECTORIES/(10**Nt(3))
 
 		Nl = iblocks(1,1)%eblock%N1
 		STEPS = Nt(1)
@@ -655,28 +649,6 @@ module module_montecarlo
 		DEALLOCATE(rho_micro_N)
 		DEALLOCATE(trajectory_depository)
 	end subroutine clean_montecarlo
-
-!	!
-!	! Collect rho from all processes
-!	!
-!	subroutine collect_rho(run)
-!		real(dp) :: norm
-!		integer(i4b) :: k, run
-!
-!		if(run < 1 .or. run > RUNS) then
-!			call print_error_message(-1, "dimension error in collect_rho()")
-!		end if
-!
-!		norm = 0
-!!		do k=1,Nl
-!!			norm = norm + abs(rho(k,k,1+STEPS*(run-1)))
-!!		end do
-!		norm = maxval(abs(rho(:,:,1+STEPS*(run-1))))
-!
-!		rho(:,:,1+STEPS*(run-1):STEPS+STEPS*(run-1)) = &
-!			rho(:,:,1+STEPS*(run-1):STEPS+STEPS*(run-1)) / norm
-!
-!	end subroutine collect_rho
 
 	subroutine perform_montecarlo(i0, j0)
 		integer(i4b), intent(in) :: i0, j0
@@ -743,13 +715,8 @@ module module_montecarlo
 						cycle
 					end if
 
-					if(variant360) then
-						rho_init(:,:) = rho_micro(:,:,run-1,i_m)/rho_micro_N(run-1,i_m)
-						rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump_measured/MICROGROUP
-					else
-						rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump/rho_micro_N(run-1,i_m)
-						rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump_measured/MICROGROUP
-					end if
+					rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump/rho_micro_N(run-1,i_m)
+					rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump_measured/MICROGROUP
 
 					if(abs(rho_init(a,b)) < 1e-6) then
 						cycle
@@ -760,7 +727,6 @@ module module_montecarlo
 						write(*,*) 'p_of_no_jump,MICROGROUP',p_of_no_jump, p_of_no_jump_measured, MICROGROUP
 						write(*,*) 'rho_init', rho_init
 						write(*,*) 'rho_micro - source', rho_micro(:,:,run-1,i_m)
-						!write(*,*) 'rho_micro - abs', sum(abs(rho_micro(:,:,run-1,i_m)))
 						write(*,*) 'rho_micro_N', rho_micro_N(run-1,i_m)
 					end if
 
@@ -772,33 +738,6 @@ module module_montecarlo
 					rho_init(i0,j0) = 1.0_dp
 
 					call generate_trajectory(draha, factor, 1.0_dp, i0, j0, i0, j0, run)
-
-!					! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG!
-!					do debug_int=1, size(draha,2)
-!						if(timeStep*(debug_int-1) < 200) then
-!							draha(1, debug_int) = 1
-!							draha(2, debug_int) = 1
-!							factor(debug_int) = 1.0_dp
-!!							debug_bool = .true.
-!						!elseif(debug_bool) then
-!						else
-!							draha(1, debug_int) = 2
-!							draha(2, debug_int) = 1
-!							factor(debug_int) = 1.0 !CMPLX(0.0_dp,1.0_dp)
-!!							debug_bool = .false.
-!!						else
-!!							draha(1, debug_int) = 2
-!!							draha(2, debug_int) = 1
-!!							factor(debug_int) = 1.0 !CMPLX(0.0_dp,1.0_dp)
-!						end if
-!
-!					end do
-!
-!!					write(*,*) draha
-!!					write(*,*)
-!!					write(*,*) factor
-!					! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG! DEBUG!
-
 
 					if(i_m == TRAJECTORIES/MICROGROUP .and. m == MICROGROUP) then
 						p_of_no_jump_measured = abs(rho(i0,j0,1))/i
@@ -819,19 +758,7 @@ module module_montecarlo
 
 				call calculate_Ifactor_from_trajectory_history(draha,cmplx(1,0,dp),Ifactor)
 				Ifactor = Ifactor/Ifactor(STEPS*(run-1)+1)	! coherent at the restart point
-				Ifactor(1:STEPS*(run-1)) = 0.0_dp			! zero before it
-
-
-!				if(i < 10) then
-!					write(*,*) 'gfac, run',run,Gfactor
-!					write(*,*)
-!					write(*,*) 'ifac',Ifactor
-!					write(*,*)
-!					write(*,*) 'fac, run',run,factor
-!					write(*,*)
-!					write(*,*) 'traj, run',run,draha
-!					write(*,*)
-!				end if
+				Ifactor(1:STEPS*(run-1)) = 0.0_dp			    ! zero before it
 
 				do j=1, STEPS
 					if(maxval(draha(:,j+STEPS*(run-1))) > 0 .and. minval(draha(:,j+STEPS*(run-1))) <= Nl) then
@@ -856,24 +783,12 @@ module module_montecarlo
 					end if
 				end do
 
-				if(variant360) then
-					bb = atan2(aimag(factor(STEPS*run)*Ifactor(STEPS*run)), real(factor(STEPS*run)*Ifactor(STEPS*run)) )*360/2/PI
-					bb = mod(bb + 360, 360) + 1
+				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m) =                &
+				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m)                  &
+!					+ factor(STEPS*run)*conjg(Gfactor(STEPS*run))*Ifactor(STEPS*run)
+					+ factor(STEPS*run)*Ifactor(STEPS*run)
 
-					rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run, bb) =                &
-					rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run, bb)                  &
-						+ factor(STEPS*run)*Ifactor(STEPS*run)
-
-					rho_micro_N(run,bb) = rho_micro_N(run,bb) + 1
-				else
-					rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m) =                &
-					rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m)                  &
-!						+ factor(STEPS*run)*conjg(Gfactor(STEPS*run))*Ifactor(STEPS*run)
-						+ factor(STEPS*run)*Ifactor(STEPS*run)
-
-					rho_micro_N(run,i_m) = rho_micro_N(run,i_m) + 1
-				end if
-
+				rho_micro_N(run,i_m) = rho_micro_N(run,i_m) + 1
 
 				if(i <= TRAJECTORIES_STORED) then
 					depository_tmp(i,:,:) = draha

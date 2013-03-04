@@ -75,19 +75,16 @@ contains
         if (index(trim(methodMC), "normal") == 1) then
 
 			depository = .false.
-			variant360 = .false.
 			modified_unraveling2 = .false.
 
         else if (index(trim(methodMC), "modified_unraveling") == 1) then
 
 			depository = .false.
-			variant360 = .false.
 			modified_unraveling2 = .true.
 
         else if (index(trim(methodMC), "depository") == 1) then
 
 			depository = .true.
-			variant360 = .false.
 			modified_unraveling2 = .false.
 
 		else if (index(trim(methodMC), "load_evops") == 1) then
