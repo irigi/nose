@@ -8,7 +8,7 @@ module resources_montecarlo
  	logical	:: 	origin = .false., g_functions = .true., depository = .false., 	&
  										modified_unraveling2 = .false., fixed_seed = .false., 			&
  										vynechani_G_ifu = .false., use_exciton_basis = .false., 		&
- 										load_evops = .false., javier_unraveling = .false.
+ 										load_evops = .false.
  	real(dp)	::  debug_gamma = 1e-10 ! nonzero for debug only
 
  	character(len=256) :: methodMC
