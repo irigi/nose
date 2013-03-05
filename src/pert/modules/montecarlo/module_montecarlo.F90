@@ -58,7 +58,7 @@ module module_montecarlo
  	integer(i1b), dimension(:,:,:), allocatable 	:: trajectory_depository
 ! 	integer(i4b), dimension(:,:), allocatable 	:: factor_depository
 
-	complex, dimension(:,:,:,:,:), allocatable		:: gg_MC, hh_MC
+	complex, dimension(:,:,:,:,:), allocatable		:: gg_MC, hh_MC, cc_MC
 
 	complex, dimension(:), allocatable 	:: MC_polar_1
 	real, dimension(:), allocatable				:: MC_spect_abs
@@ -88,6 +88,11 @@ module module_montecarlo
 	private::init_goft_general
 	private::deinit_goft_general
 	private::goft_general
+	private::dgoft_general
+	private::goft_general_2
+	private::dgoft_general_2
+	private::goft_general_4
+	private::dgoft_general_4
 	private::hoft_general
 	private::Vh_general
 	private::hV_general
@@ -103,6 +108,15 @@ module module_montecarlo
 	private::seam_superoperators_U
 
 	private::write_gofts
+
+	interface goft_general
+		module procedure goft_general_2
+		module procedure goft_general_4
+	end interface
+	interface dgoft_general
+		module procedure dgoft_general_2
+		module procedure dgoft_general_4
+	end interface
 
 	interface generate_trajectory
 		module procedure generate_trajectory_re
@@ -904,6 +918,7 @@ module module_montecarlo
 
 		DEALLOCATE(gg_MC)
 		DEALLOCATE(hh_MC)
+		DEALLOCATE(cc_MC)
 
 	end subroutine deinit_goft_general
 
@@ -915,9 +930,11 @@ module module_montecarlo
 
 		ALLOCATE(gg_MC, (NNN, NNN, NNN, NNN, size(all_goft(1)%gg,1)) )
 		ALLOCATE(hh_MC, (NNN, NNN, NNN, NNN, size(all_hoft(1)%gg,1)) )
+		ALLOCATE(cc_MC, (NNN, NNN, NNN, NNN, size(all_coft(1)%gg,1)) )
 
 		gg_MC = 0.0_dp
 		hh_MC = 0.0_dp
+		cc_MC = 0.0_dp
 
 		SSS => iblocks(1,1)%eblock%SS
 		SS1 => iblocks(1,1)%eblock%S1
@@ -938,7 +955,10 @@ module module_montecarlo
 													* SS1(k,s) * all_goft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
 
 				hh_MC(i,j,k,l,t_index) = 	SS1(i,r) * all_hoft(iblocks(1,1)%sblock%gindex(r))%gg(t_index) * SSS(r,j) &
-													* SS1(k,s) * all_goft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
+													* SS1(k,s) * all_hoft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
+
+				cc_MC(i,j,k,l,t_index) = 	SS1(i,r) * all_coft(iblocks(1,1)%sblock%gindex(r))%gg(t_index) * SSS(r,j) &
+													* SS1(k,s) * all_coft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
 			end do
 			end do
 
@@ -955,60 +975,132 @@ module module_montecarlo
 			do i=1,NNN
 				gg_MC(i,i,i,i,t_index) = all_goft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
 				hh_MC(i,i,i,i,t_index) = all_hoft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
+				cc_MC(i,i,i,i,t_index) = all_coft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
 			end do
 			end do
 		end if
 
 	end subroutine init_goft_general
 
-	recursive function goft_general(m,n,t) result(dgoft)
-		real(dp), intent(in)		:: t
-		integer(i4b), intent(in)	:: m,n
-		complex(dpc)				:: dgoft
-		integer (i4b)			   :: a, t_index
-		character(len=300)		  :: buff
+	! this is basicaly ordinary correlation function in general basis, so
+	! it has four idices, since it is quantity of second order in SBC
+	recursive function VV_general(m,n,   i,j,t1,t2) result(res)
+		real(dp), intent(in)		:: t1,t2
+		integer(i4b), intent(in)	:: m,n,i,j
+		complex(dpc)				:: res
+
+		integer(i4b)					:: t_index
+		real(dp)							:: t
+
+		t = t1 - t2
 
 		if(t < 0) then
-			dgoft = conjg(goft_site(n,m,-t))
+			res = conjg(VV_general(i,j,m,n,t2,t1))
 			return
 		end if
 
 		t_index = INT(t/dt)+1
 
-		dgoft = 0.0_dp
+		res = 0.0_dp
 
-		if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex) .or. n < 1 .or. n > size(iblocks(1,1)%sblock%gindex)) then
-			write(buff,'(i2)') m
-			buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
-			call print_error_message(-1,buff)
-			stop
+		!!! what about terms ii-jj, are they in this term too, or are they in g-fctions of excitons?
+		if(exciton_basis_unraveling) then
+			res = cc_MC(m,n,i,j,t_index)
 		end if
 
-		if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
-			write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
-			call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
-			stop
+	end function VV_general
+
+	function goft_general_2(m,n,t) result(res)
+		real(dp), intent(in)		:: t
+		integer(i4b), intent(in)	:: m,n
+		complex(dpc)				:: res
+
+		res = goft_general_4(m,m,n,n,t)
+	end function goft_general_2
+
+	recursive function goft_general_4(i,j,m,n,t) result(res)
+		real(dp), intent(in)		:: t
+		integer(i4b), intent(in)	:: i,j,m,n
+		complex(dpc)				:: res
+		integer (i4b)					:: a, t_index
+		character(len=300)		:: buff
+
+		if(t < 0) then
+			res = conjg(goft_general_4(m,n,i,j,-t))
+			return
 		end if
 
-		dgoft = gg_MC(m,m,n,n,t_index)
+		t_index = INT(t/dt)+1
 
-	end function goft_general
+		res = 0.0_dp
 
-	recursive function hoft_general(m,n,t1,t2) result(dgoft)
+!		if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex) .or. n < 1 .or. n > size(iblocks(1,1)%sblock%gindex)) then
+!			write(buff,'(i2)') m
+!			buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
+!			call print_error_message(-1,buff)
+!			stop
+!		end if
+!
+!		if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
+!			write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
+!			call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
+!			stop
+!		end if
+
+		res = gg_MC(i,j,m,n,t_index)
+
+	end function goft_general_4
+
+	function dgoft_general_2(m,n,t) result(res)
+		real(dp), intent(in)		:: t
+		integer(i4b), intent(in)	:: m,n
+		complex(dpc)				:: res
+
+		res = dgoft_general_4(m,m,n,n,t)
+	end function dgoft_general_2
+
+	recursive function dgoft_general_4(i,j,m,n,t) result(res)
+		real(dp), intent(in)		:: t
+		integer(i4b), intent(in)	:: m,n,i,j
+		complex(dpc)				:: res
+		integer (i4b)			   		:: a, t_index
+		character(len=300)		:: buff
+
+		if(t < 0) then
+			res = -conjg(dgoft_general_4(m,n,i,j,-t))
+			return
+		end if
+
+		t_index = INT(t/dt)+1
+
+		res = 0.0_dp
+
+!		if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex) .or. n < 1 .or. n > size(iblocks(1,1)%sblock%gindex)) then
+!			write(buff,'(i2)') m
+!			buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
+!			call print_error_message(-1,buff)
+!			stop
+!		end if
+!
+!		if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
+!			write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
+!			call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
+!			stop
+!		end if
+
+		res = hh_MC(i,j,m,n,t_index)
+
+	end function dgoft_general_4
+
+	function hoft_general(m,n,t1,t2) result(res)
 	! hoft(a,a,t1,t2) = hoft(a,a,-t2,-t1)
 		real(dp), intent(in)		:: t1,t2
 		integer(i4b), intent(in)	:: m,n
-		complex(dpc)				:: dgoft
+		complex(dpc)				:: res
 
-		dgoft = 0.0_dp
+		res = 0.0_dp
 
-		if(exciton_basis_unraveling) then
-			dgoft = goft_site(m,n,t1) - goft_site(m,n,t1-t2) + goft_site(m,n,-t2)
-		else
-			if(m == n) then
-				dgoft = goft_site(m,m,t1) - goft_site(m,m,t1-t2) + goft_site(m,m,-t2)
-			end if
-		end if
+		res = goft_general(m,n,t1) - goft_general(m,n,t1-t2) + goft_general(m,n,-t2)
 
 	end function hoft_general
 
@@ -1019,6 +1111,8 @@ module module_montecarlo
 
 		res = 0.0_dp
 
+		res = goft_general(i,i,m,n,th) - dgoft_general(i,i,m,n,-tV) + dgoft_general(i,i,m,n,th-tV)
+
 	end function hV_general
 
 	recursive function Vh_general(m,n,   i,tV,th) result(res)
@@ -1028,16 +1122,9 @@ module module_montecarlo
 
 		res = 0.0_dp
 
+		res = dgoft_general(m,n,i,i,tV) + goft_general(m,n,i,i,-th) - dgoft_general(m,n,i,i,tV-th)
+
 	end function Vh_general
-
-	recursive function VV_general(m,n,   i,j,t1,t2) result(res)
-		real(dp), intent(in)		:: t1,t2
-		integer(i4b), intent(in)	:: m,n,i,j
-		complex(dpc)				:: res
-
-		res = 0.0_dp
-
-	end function VV_general
 
 	!
 	! Generates trajectory with STEPS steps and related pure-coupling-factors
