@@ -90,10 +90,13 @@ contains
 		else if (index(trim(methodMC), "load_evops") == 1) then
 			load_evops = .true.
 
+		else if (index(trim(methodMC), "exciton_basis_unraveling") == 1) then
+			exciton_basis_unraveling = .true.
+
         else
 
 			write(*,*) "Error: method not implemented, use normal[_noG], modified_unraveling[_noG], depository[_noG],"
-			write(*,*) "       [_fixed_seed]"
+			write(*,*) "       exciton_basis_unraveling[_noG], [_fixed_seed]"
             stop
 
         end if

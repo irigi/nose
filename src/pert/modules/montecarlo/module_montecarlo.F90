@@ -58,6 +58,7 @@ module module_montecarlo
  	integer(i1b), dimension(:,:,:), allocatable 	:: trajectory_depository
 ! 	integer(i4b), dimension(:,:), allocatable 	:: factor_depository
 
+	complex, dimension(:,:,:,:,:), allocatable		:: gg_MC, hh_MC
 
 	complex, dimension(:), allocatable 	:: MC_polar_1
 	real, dimension(:), allocatable				:: MC_spect_abs
@@ -84,6 +85,8 @@ module module_montecarlo
 	private::goft_site
 	private::hoft_site
 	private::calculate_Gfactor_from_trajectory_history
+	private::init_goft_general
+	private::deinit_goft_general
 	private::goft_general
 	private::hoft_general
 	private::Vh_general
@@ -130,6 +133,7 @@ module module_montecarlo
 		end if
 
 		call init_monte_carlo()
+		call init_goft_general()
 		call write_gofts()
 
 		if(debug_gamma > 1e-12) then
@@ -326,6 +330,8 @@ module module_montecarlo
 			end if
 
 		end if
+
+		call deinit_goft_general()
 
 	end subroutine do_montecarlo_work
 
@@ -894,7 +900,68 @@ module module_montecarlo
 
 	end function hoft_site
 
-		recursive function goft_general(m,n,t) result(dgoft)
+	subroutine deinit_goft_general()
+
+		DEALLOCATE(gg_MC)
+		DEALLOCATE(hh_MC)
+
+	end subroutine deinit_goft_general
+
+	subroutine init_goft_general()
+		integer(i4b) :: i,j,k,l,r,s,t_index, NNN
+		real(dp), dimension(:,:), pointer :: SSS, SS1
+
+		NNN = size(iblocks(1,1)%eblock%S1,1)
+
+		ALLOCATE(gg_MC, (NNN, NNN, NNN, NNN, size(all_goft(1)%gg,1)) )
+		ALLOCATE(hh_MC, (NNN, NNN, NNN, NNN, size(all_hoft(1)%gg,1)) )
+
+		gg_MC = 0.0_dp
+		hh_MC = 0.0_dp
+
+		SSS => iblocks(1,1)%eblock%SS
+		SS1 => iblocks(1,1)%eblock%S1
+
+		if(exciton_basis_unraveling) then
+
+			! init of exciton goft and hoft
+			do t_index=1,size(all_goft(iblocks(1,1)%sblock%gindex(i))%gg)
+
+			do i=1,NNN
+			do j=1,NNN
+			do k=1,NNN
+			do l=1,NNN
+
+			do r=1,NNN
+			do s=1,NNN
+				gg_MC(i,j,k,l,t_index) = 	SS1(i,r) * all_goft(iblocks(1,1)%sblock%gindex(r))%gg(t_index) * SSS(r,j) &
+													* SS1(k,s) * all_goft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
+
+				hh_MC(i,j,k,l,t_index) = 	SS1(i,r) * all_hoft(iblocks(1,1)%sblock%gindex(r))%gg(t_index) * SSS(r,j) &
+													* SS1(k,s) * all_goft(iblocks(1,1)%sblock%gindex(s))%gg(t_index) * SSS(s,l)
+			end do
+			end do
+
+			end do
+			end do
+			end do
+			end do
+
+			end do
+
+		else
+
+			do t_index=1,size(all_hoft(iblocks(1,1)%sblock%gindex(i))%gg)
+			do i=1,NNN
+				gg_MC(i,i,i,i,t_index) = all_goft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
+				hh_MC(i,i,i,i,t_index) = all_hoft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
+			end do
+			end do
+		end if
+
+	end subroutine init_goft_general
+
+	recursive function goft_general(m,n,t) result(dgoft)
 		real(dp), intent(in)		:: t
 		integer(i4b), intent(in)	:: m,n
 		complex(dpc)				:: dgoft
@@ -910,24 +977,20 @@ module module_montecarlo
 
 		dgoft = 0.0_dp
 
-		if(m == n) then
-
-			if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex)) then
-				write(buff,'(i2)') m
-				buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
-				call print_error_message(-1,buff)
-				stop
-			end if
-
-			if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
-				write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
-				call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
-				stop
-			end if
-
-			dgoft = all_goft(iblocks(1,1)%sblock%gindex(m))%gg(t_index)
-
+		if(m < 1 .or. m > size(iblocks(1,1)%sblock%gindex) .or. n < 1 .or. n > size(iblocks(1,1)%sblock%gindex)) then
+			write(buff,'(i2)') m
+			buff = "m="//trim(buff)//" exceeds Nl1 size in goft_site()"
+			call print_error_message(-1,buff)
+			stop
 		end if
+
+		if(t_index < 1 .or. t_index > size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)) then
+			write(*,*) t, t_index, m,  size(all_goft(iblocks(1,1)%sblock%gindex(m))%gg,1)
+			call print_error_message(-1,"tau exceeds goft size in dgoft_site()")
+			stop
+		end if
+
+		dgoft = gg_MC(m,m,n,n,t_index)
 
 	end function goft_general
 
@@ -939,8 +1002,12 @@ module module_montecarlo
 
 		dgoft = 0.0_dp
 
-		if(m == n) then
-			dgoft = goft_site(m,m,t1) - goft_site(m,m,t1-t2) + goft_site(m,m,-t2)
+		if(exciton_basis_unraveling) then
+			dgoft = goft_site(m,n,t1) - goft_site(m,n,t1-t2) + goft_site(m,n,-t2)
+		else
+			if(m == n) then
+				dgoft = goft_site(m,m,t1) - goft_site(m,m,t1-t2) + goft_site(m,m,-t2)
+			end if
 		end if
 
 	end function hoft_general
