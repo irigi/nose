@@ -62,7 +62,7 @@ module module_montecarlo
 	complex, dimension(:), allocatable :: MC_polar_1
     real, dimension(:), allocatable    :: MC_spect_abs
 
-    logical, parameter :: only_coherences = .false.
+    logical, parameter :: only_coherences = .true.
 
 	real(dp), private :: dom, oma
 	integer(i4b), private :: NFFT, padfac
