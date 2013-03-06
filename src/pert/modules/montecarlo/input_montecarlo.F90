@@ -92,6 +92,7 @@ contains
 
 		else if (index(trim(methodMC), "exciton_basis_unraveling") == 1) then
 			exciton_basis_unraveling = .true.
+			modified_unraveling2 = .true.
 
         else
 
