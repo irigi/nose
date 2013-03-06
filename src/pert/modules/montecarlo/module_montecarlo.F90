@@ -45,7 +45,7 @@ module module_montecarlo
      integer(i4b), private    ::    TRAJECTORIES, TRAJECTORIES_STORED, RUNS, MICROGROUP
 
      integer(i4b), private    ::    STEPS = -1
-     integer(i4b), private    ::    Nl                             ! number of one-excitons
+     integer(i4b), private    ::    Nl                                 ! number of one-excitons
      real(dp), dimension(:,:), pointer, private   ::  J_coupl          ! pointer to couplings
      real(dp), private        ::  timeStep                             ! timestep of the method
      real(dp), private        ::  jumps_in_one_run                     ! jumps in average in one run
@@ -56,9 +56,9 @@ module module_montecarlo
      real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 1.0_dp
 
      integer(i1b), dimension(:,:,:), allocatable :: trajectory_depository
-!     integer(i4b), dimension(:,:), allocatable     :: factor_depository
+!     integer(i4b), dimension(:,:), allocatable   :: factor_depository
 
-    complex, dimension(:,:,:,:,:), allocatable    :: gg_MC, hh_MC, cc_MC
+    complex, dimension(:,:,:,:,:), allocatable   :: gg_MC, hh_MC, cc_MC
 
     complex, dimension(:), allocatable     :: MC_polar_1
     real, dimension(:), allocatable        :: MC_spect_abs
@@ -79,12 +79,19 @@ module module_montecarlo
 
 !    private::collect_rho
     private::init_random_seed
+
+    private::jump_probability_144
+    private::jump_probability_444
+    private::jump_phase_change
+    private::jump_probability_total_IJ
+    private::jump_probability_total_
+
     private::generate_trajectory
     private::generate_trajectory_re
     private::generate_trajectory_cmplx
+
     private::goft_site
     private::hoft_site
-    private::calculate_Gfactor_from_trajectory_history
     private::init_goft_general
     private::deinit_goft_general
     private::goft_general
@@ -97,6 +104,8 @@ module module_montecarlo
     private::Vh_general
     private::hV_general
     private::VV_general
+
+    private::calculate_Gfactor_from_trajectory_history
     private::calculate_Gfactor_from_trajectory_history_general_basis
     private::calculate_Ifactor_from_trajectory_history
     private::next_step_of_trajectory
@@ -123,7 +132,16 @@ module module_montecarlo
         module procedure generate_trajectory_cmplx
     end interface
 
-     contains
+    interface jump_probability
+        module procedure jump_probability_144
+        module procedure jump_probability_444
+    end interface
+    interface jump_probability_total
+        module procedure jump_probability_total_
+        module procedure jump_probability_total_IJ
+    end interface
+
+    contains
 
     !
     ! Do all the simulations within the module
@@ -172,7 +190,7 @@ module module_montecarlo
         write(cbuff, '(A L)') "FastG ", vynechani_G_ifu
         call print_log_message(cbuff, 5)
 
-        if(load_evops) then             !***************************************************
+        if(load_evops) then
 
         !*************************************************************
         !  Reading evops if possible
@@ -227,7 +245,7 @@ module module_montecarlo
             end if
         end if
 
-        else                            !***************************************************
+        else                            ! not load evops
 
         !*************************************************************
         ! Calculation of evolution superops
@@ -620,7 +638,7 @@ module module_montecarlo
         if(sum(J_coupl) < 1e-5) then
             timeStep = (dt*gt(1))/RUNS
         else
-            timeStep = jumps_in_one_run/sum(J_coupl)/CoherentFactorMultiplierToLowerJumpProb/STEPS
+            timeStep = jumps_in_one_run/jump_probability_total()*timeStep/STEPS
 
             if(timeStep > (dt*gt(1))/RUNS) then
                 timeStep = (dt*gt(1))/RUNS
@@ -629,9 +647,9 @@ module module_montecarlo
             end if
         end if
 
-        jumps_in_one_run = timeStep*sum(J_coupl)*CoherentFactorMultiplierToLowerJumpProb*STEPS
+        jumps_in_one_run = jump_probability_total()*STEPS
 
-        p_of_no_jump = (1.0_dp - timeStep*sum(J_coupl)*CoherentFactorMultiplierToLowerJumpProb)**STEPS
+        p_of_no_jump = (1.0_dp - jump_probability_total())**STEPS
 
 
         ALLOCATE(rho,(Nl,Nl,STEPS*RUNS))
@@ -700,7 +718,7 @@ module module_montecarlo
         If_cor      = 0.0_dp
         fIf_cor     = 0.0_dp
 
-        write(buff,'(f12.3)') sum(J_coupl)*STEPS*timeStep*CoherentFactorMultiplierToLowerJumpProb
+        write(buff,'(f12.3)') jump_probability_total()
         buff = 'Averagely ' // trim(buff) // ' jumps in one run'
         call print_log_message(trim(buff),5)
 
@@ -1131,6 +1149,90 @@ module module_montecarlo
     end function Vh_general
 
     !
+    ! Defines the jump probability at given circumstances
+    !
+    function jump_probability_444(state_where_I_am,state_where_to_go,side) result(res)
+        integer(i4b), intent(in)                 :: state_where_I_am
+        integer(i4b), intent(in)                 :: side, state_where_to_go
+        real(dp)                                 :: res
+
+        res = 0.0_dp
+
+        if(exciton_basis_unraveling) then
+        else
+            ! technically, it should (probably) be state_where_I_am,state_where_to_go for side = 1
+            ! and the other way for side = 2, but since the J is symmetric, it doesn't matter
+            res = J_coupl(state_where_I_am,state_where_to_go)*timeStep*CoherentFactorMultiplierToLowerJumpProb
+        end if
+
+    end function jump_probability_444
+
+    ! just for interface-purposes
+    function jump_probability_144(state_where_I_am,state_where_to_go,side) result(res)
+        integer(i1b), intent(in)                 :: state_where_I_am
+        integer(i4b), intent(in)                 :: side, state_where_to_go
+        real(dp)                                 :: res
+
+        integer(i4b)                             :: a
+
+        a = state_where_I_am
+
+        res = jump_probability_444(a,state_where_to_go,side)
+    end function jump_probability_144
+
+    !
+    ! Total jump probability at given circumstances
+    !
+    function jump_probability_total_IJ(i0, j0) result(cumulative_probability)
+        integer(i4b), intent(in)   :: i0, j0
+        real(dp)                   :: cumulative_probability
+
+        integer(i4b)               :: a
+
+        cumulative_probability = 0.0_dp
+        do a=1,Nl
+            cumulative_probability = cumulative_probability + jump_probability(i0, a, 1)
+        end do
+        if(.not. only_coherences) then
+            do a=1,Nl
+                cumulative_probability = cumulative_probability + jump_probability(j0, a, 2)
+            end do
+        end if
+    end function
+
+    function jump_probability_total_() result(cumulative_probability)
+        real(dp)                   :: cumulative_probability
+
+        integer(i4b)               :: a
+
+        cumulative_probability = 0.0_dp
+        do a=1,Nl
+            cumulative_probability = cumulative_probability + jump_probability_total_IJ(a,a)
+        end do
+
+    end function
+
+    !
+    ! Defines the jump phase change at given circumstances
+    !
+    function jump_phase_change(trajectory,side,i,a) result(res)
+        integer(i1b), intent(in), dimension(:,:) :: trajectory
+        integer(i4b), intent(in)                 :: side, i,a
+        real(dp)                                 :: res
+
+        res = 0.0_dp
+
+        if(exciton_basis_unraveling) then
+        else
+            if(side == 1) then
+                res = cmplx(0,-1,dpc)/CoherentFactorMultiplierToLowerJumpProb
+            else if(side == 2) then
+                res = cmplx(0,+1,dpc)/CoherentFactorMultiplierToLowerJumpProb
+            end if
+        end if
+    end function jump_phase_change    !
+
+    !
     ! Generates trajectory with STEPS steps and related pure-coupling-factors
     !
     subroutine generate_trajectory_re(trajectory, factor_out, factor_in, i0, j0, i00, j00, run)
@@ -1162,10 +1264,8 @@ module module_montecarlo
 
         if((.not.(i0 == -1 .and. j0 == -1)) .or. depository) then
             ! if depository is on or we are in first recursion, we zero the trajectory and factor
-!            if(run > 1) then
-                factor_out = 0.0_dp
-                trajectory = 0
-!            end if
+            factor_out = 0.0_dp
+            trajectory = 0
 
             trajectory(1, STEPS*(run-1) + 1) = i0
             trajectory(2, STEPS*(run-1) + 1) = j0
@@ -1243,51 +1343,26 @@ module module_montecarlo
                     exit
                 end if
 
-                if(side == 1) then
-                    cumulative_probability = cumulative_probability + &
-                                            J_coupl(trajectory(1,i), a)*timeStep*CoherentFactorMultiplierToLowerJumpProb
+                cumulative_probability = cumulative_probability + jump_probability(trajectory(side,i),a,side)
 
-                    if(cumulative_random < cumulative_probability) then
-                        trajectory(1,i+1) = a
-                        factor_out(i+1) = factor_out(i)*cmplx(0,1,dpc)/CoherentFactorMultiplierToLowerJumpProb &
-                                                        *(-1) !hack, ale spravne
-                        if(.not. modified_unraveling2) then
-                            factor_out(1:i) = 0.0_dp
-                        end if
-                        goto 42
+                if(cumulative_random < cumulative_probability) then
+                    trajectory(side,i+1) = a
+                    factor_out(i+1) = factor_out(i)*jump_phase_change(trajectory,side,i,a)
+                    if(.not. modified_unraveling2) then
+                        factor_out(1:i) = 0.0_dp
                     end if
-                else
-                    cumulative_probability = cumulative_probability + &
-                                            J_coupl(a, trajectory(2,i))*timeStep*CoherentFactorMultiplierToLowerJumpProb
-                    if(cumulative_random < cumulative_probability) then
-                        trajectory(2,i+1) = a
-                        factor_out(i+1) = factor_out(i)*cmplx(0,-1,dpc)/CoherentFactorMultiplierToLowerJumpProb &
-                                                        *(-1) !hack, ale spravne
-                        if(.not. modified_unraveling2) then
-                            factor_out(1:i) = 0.0_dp
-                        end if
-                        goto 42
-                    end if
+                    goto 42
                 end if
 
             end do
             end do
 
-42            continue
+42          continue
         end do
 
+        ! normalization according to the jump probability
         if(modified_unraveling2) then
-            cumulative_probability = 0.0_dp
-            do a=1,Nl
-                cumulative_probability = cumulative_probability + &
-                                            J_coupl(i0, a)*timeStep*CoherentFactorMultiplierToLowerJumpProb
-            end do
-            if(.not. only_coherences) then
-                do a=1,Nl
-                    cumulative_probability = cumulative_probability + &
-                                            J_coupl(a, j0)*timeStep*CoherentFactorMultiplierToLowerJumpProb
-                end do
-            end if
+            cumulative_probability = jump_probability_total(i0,j0)
 
             do i=1+STEPS*(run-1), STEPS-1+STEPS*(run-1)
                 factor_out(i) = factor_out(i) / (1.0 - cumulative_probability)**(i-STEPS*(run-1))
