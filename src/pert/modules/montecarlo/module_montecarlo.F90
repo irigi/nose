@@ -638,7 +638,7 @@ module module_montecarlo
         if(sum(J_coupl) < 1e-5) then
             timeStep = (dt*gt(1))/RUNS
         else
-            timeStep = jumps_in_one_run/jump_probability_total()*timeStep/STEPS
+            timeStep = jumps_in_one_run/jump_probability_total()/STEPS
 
             if(timeStep > (dt*gt(1))/RUNS) then
                 timeStep = (dt*gt(1))/RUNS
@@ -647,9 +647,9 @@ module module_montecarlo
             end if
         end if
 
-        jumps_in_one_run = jump_probability_total()*STEPS
+        jumps_in_one_run = jump_probability_total()*timeStep*STEPS
 
-        p_of_no_jump = (1.0_dp - jump_probability_total())**STEPS
+        p_of_no_jump = (1.0_dp - jump_probability_total()*timeStep)**STEPS
 
 
         ALLOCATE(rho,(Nl,Nl,STEPS*RUNS))
@@ -718,7 +718,7 @@ module module_montecarlo
         If_cor      = 0.0_dp
         fIf_cor     = 0.0_dp
 
-        write(buff,'(f12.3)') jump_probability_total()
+        write(buff,'(f12.3)') jump_probability_total()*timeStep
         buff = 'Averagely ' // trim(buff) // ' jumps in one run'
         call print_log_message(trim(buff),5)
 
@@ -1152,9 +1152,9 @@ module module_montecarlo
     ! Defines the jump probability at given circumstances
     !
     function jump_probability_444(state_where_I_am,state_where_to_go,side) result(res)
-        integer(i4b), intent(in)                 :: state_where_I_am
-        integer(i4b), intent(in)                 :: side, state_where_to_go
-        real(dp)                                 :: res
+        integer(i4b), intent(in)   :: state_where_I_am
+        integer(i4b), intent(in)   :: side, state_where_to_go
+        real(dp)                   :: res
 
         res = 0.0_dp
 
@@ -1162,7 +1162,7 @@ module module_montecarlo
         else
             ! technically, it should (probably) be state_where_I_am,state_where_to_go for side = 1
             ! and the other way for side = 2, but since the J is symmetric, it doesn't matter
-            res = J_coupl(state_where_I_am,state_where_to_go)*timeStep*CoherentFactorMultiplierToLowerJumpProb
+            res = J_coupl(state_where_I_am,state_where_to_go)*CoherentFactorMultiplierToLowerJumpProb
         end if
 
     end function jump_probability_444
@@ -1343,7 +1343,7 @@ module module_montecarlo
                     exit
                 end if
 
-                cumulative_probability = cumulative_probability + jump_probability(trajectory(side,i),a,side)
+                cumulative_probability = cumulative_probability + jump_probability(trajectory(side,i),a,side)*timeStep
 
                 if(cumulative_random < cumulative_probability) then
                     trajectory(side,i+1) = a
@@ -1362,7 +1362,7 @@ module module_montecarlo
 
         ! normalization according to the jump probability
         if(modified_unraveling2) then
-            cumulative_probability = jump_probability_total(i0,j0)
+            cumulative_probability = jump_probability_total(i0,j0)*timeStep
 
             do i=1+STEPS*(run-1), STEPS-1+STEPS*(run-1)
                 factor_out(i) = factor_out(i) / (1.0 - cumulative_probability)**(i-STEPS*(run-1))
