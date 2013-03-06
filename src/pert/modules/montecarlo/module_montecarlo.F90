@@ -617,6 +617,11 @@ module module_montecarlo
             use_exciton_basis = .true.
         end if
 
+        ! this maybe will have to be done in a more sophisticated way...
+        if(exciton_basis_unraveling) then
+            use_exciton_basis = .false.
+        end if
+
         if(fixed_seed) then
             call init_random_seed(0)
         else
@@ -635,7 +640,7 @@ module module_montecarlo
         J_coupl => iblocks(1,1)%sblock%J
         !Nl = size(J_coupl,1)
 
-        if(sum(J_coupl) < 1e-5) then
+        if(jump_probability_total() < 1e-5) then
             timeStep = (dt*gt(1))/RUNS
         else
             timeStep = jumps_in_one_run/jump_probability_total()/STEPS
