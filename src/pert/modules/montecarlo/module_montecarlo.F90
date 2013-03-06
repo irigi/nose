@@ -773,7 +773,11 @@ module module_montecarlo
 				end if
 
 				if(g_functions) then
-					call calculate_Gfactor_from_trajectory_history(draha,cmplx(1,0,dp),Gfactor) !
+				if(exciton_basis_unraveling) then
+					call calculate_Gfactor_from_trajectory_history_general_basis(draha,cmplx(1,0,dp),Gfactor)
+				else
+					call calculate_Gfactor_from_trajectory_history(draha,cmplx(1,0,dp),Gfactor)
+				end if
 				end if
 
 				call calculate_Ifactor_from_trajectory_history(draha,cmplx(1,0,dp),Ifactor)
@@ -1344,14 +1348,28 @@ module module_montecarlo
 
 		factor_out = 0.0_dp
 		factor_out(1) = initial_factor
+		if(exciton_basis_unraveling) then
+
+		! exciton basis
 		do i=2,size(factor_out)
 			if(minval(trajectory(:,i)) < 1) then
-!				write(*,*) "I'm exiting here! ", minval(trajectory(:,i)), i
-!				write(*,*)
-!				write(*,*)
-!				write(*,*) trajectory(1,:)
-!				write(*,*)
-!				write(*,*) trajectory(2,:)
+				exit
+			else
+				if(.not. only_coherences) then
+					factor_out(i) = factor_out(i-1)*exp(cmplx(0,-1,dpc)*timeStep*&
+					  (iblocks(1,1)%eblock%en(trajectory(1,i)) - iblocks(1,1)%eblock%en(trajectory(2,i))) )
+				else
+					factor_out(i) = factor_out(i-1)*exp(cmplx(0,-1,dpc)*timeStep*&
+					  (iblocks(1,1)%eblock%en(trajectory(1,i)) - rwa))
+				end if
+			end if
+		end do
+
+		else
+
+		! local basis
+		do i=2,size(factor_out)
+			if(minval(trajectory(:,i)) < 1) then
 				exit
 			else
 				if(.not. only_coherences) then
@@ -1360,11 +1378,11 @@ module module_montecarlo
 				else
 					factor_out(i) = factor_out(i-1)*exp(cmplx(0,-1,dpc)*timeStep*&
 					  (iblocks(1,1)%sblock%en(trajectory(1,i)) - rwa) - debug_gamma*timeStep)
-
-!					write(*,*) 'Ifactor: ', iblocks(1,1)%sblock%en(trajectory(1,i)) - rwa, rwa
 				end if
 			end if
 		end do
+
+		end if ! exciton_basis unraveling and others
 
 	end subroutine calculate_Ifactor_from_trajectory_history
 
