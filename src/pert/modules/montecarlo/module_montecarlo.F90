@@ -45,23 +45,23 @@ module module_montecarlo
  	integer(i4b), private	::	TRAJECTORIES, TRAJECTORIES_STORED, RUNS, MICROGROUP
 
  	integer(i4b), private	:: 						 	STEPS = -1
- 	integer(i4b), private :: 							Nl			! number of one-excitons
+ 	integer(i4b), private 	:: 							Nl		! number of one-excitons
  	real(dp), dimension(:,:), pointer, private 	:: 	J_coupl 	! pointer to couplings
- 	real(dp), private 								:: 	timeStep	! timestep of the method
- 	real(dp), private								::  jumps_in_one_run ! jumps in average in one run
- 	real(dp), private								::  p_of_no_jump, p_of_no_jump_measured ! probability of no jump (important for restarting)
+ 	real(dp), private 							:: 	timeStep	! timestep of the method
+ 	real(dp), private							::  jumps_in_one_run ! jumps in average in one run
+ 	real(dp), private							::  p_of_no_jump, p_of_no_jump_measured ! probability of no jump (important for restarting)
  	complex(dpc), dimension(:,:,:), allocatable, private 	:: rho, rho_coherent
  	complex(dpc), dimension(:,:,:,:), allocatable, private 	:: rho_micro
- 	integer(i4b), dimension(:,:), allocatable, private			:: rho_micro_N
+ 	integer(i4b), dimension(:,:), allocatable, private		:: rho_micro_N
  	real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 1.0_dp
 
- 	integer(i1b), dimension(:,:,:), allocatable 	:: trajectory_depository
+ 	integer(i1b), dimension(:,:,:), allocatable :: trajectory_depository
 ! 	integer(i4b), dimension(:,:), allocatable 	:: factor_depository
 
-	complex, dimension(:,:,:,:,:), allocatable		:: gg_MC, hh_MC, cc_MC
+	complex, dimension(:,:,:,:,:), allocatable	:: gg_MC, hh_MC, cc_MC
 
 	complex, dimension(:), allocatable 	:: MC_polar_1
-	real, dimension(:), allocatable				:: MC_spect_abs
+	real, dimension(:), allocatable		:: MC_spect_abs
 
     logical, parameter :: only_coherences = .true.
 
@@ -131,12 +131,12 @@ module module_montecarlo
 	subroutine do_montecarlo_work(err)
 		integer, intent(out)	:: err
 
-		integer(i4b) 				:: r,s,k,l,i, closest_i, closest_j
-		character(len=128)	:: cbuff
+		integer(i4b) 			:: r,s,k,l,i, closest_i, closest_j
+		character(len=128)		:: cbuff
 		character :: type
 
 		complex(dpc), dimension(:,:), allocatable 	:: rho_in
-		real(dp), dimension(:), allocatable 				:: vector
+		real(dp), dimension(:), allocatable 		:: vector
 
 		Nl = iblocks(1,1)%eblock%N1
 
@@ -786,29 +786,29 @@ module module_montecarlo
 
 				do j=1, STEPS
 					if(maxval(draha(:,j+STEPS*(run-1))) > 0 .and. minval(draha(:,j+STEPS*(run-1))) <= Nl) then
-						rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) = 		&
-						rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))   		&
+						rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) = 			&
+						rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))   			&
 						+ factor(j+STEPS*(run-1))*conjg(Gfactor(j+STEPS*(run-1)))*Ifactor(j+STEPS*(run-1))
 
 						rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) = 	&
-						rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))   		&
+						rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))   	&
 						+ factor(j+STEPS*(run-1))*Ifactor(j+STEPS*(run-1))
 
 						fIfGf_cor(j+STEPS*(run-1))	= fIfGf_cor(j+STEPS*(run-1)) + 		&
 							factor(j+STEPS*(run-1))*conjg(Gfactor(j+STEPS*(run-1)))*Ifactor(j+STEPS*(run-1))
-						Gf_cor(j+STEPS*(run-1))		= Gf_cor(j+STEPS*(run-1)) + 	&
+						Gf_cor(j+STEPS*(run-1))		= Gf_cor(j+STEPS*(run-1)) + 		&
 							conjg(Gfactor(j+STEPS*(run-1)))
 						f_cor(j+STEPS*(run-1)) 		= f_cor(j+STEPS*(run-1)) + 			&
 							factor(j+STEPS*(run-1))
-						If_cor(j+STEPS*(run-1))		= If_cor(j+STEPS*(run-1)) + 			&
+						If_cor(j+STEPS*(run-1))		= If_cor(j+STEPS*(run-1)) + 		&
 							Ifactor(j+STEPS*(run-1))
-						fIf_cor(j+STEPS*(run-1))	= fIf_cor(j+STEPS*(run-1)) + 				&
+						fIf_cor(j+STEPS*(run-1))	= fIf_cor(j+STEPS*(run-1)) + 		&
 							factor(j+STEPS*(run-1))*Ifactor(j+STEPS*(run-1))
 					end if
 				end do
 
-				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m) =		&
-				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m)			&
+				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m) =				&
+				rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m)				&
 !					+ factor(STEPS*run)*conjg(Gfactor(STEPS*run))*Ifactor(STEPS*run)
 					+ factor(STEPS*run)*Ifactor(STEPS*run)
 
@@ -1067,8 +1067,8 @@ module module_montecarlo
 		real(dp), intent(in)		:: t
 		integer(i4b), intent(in)	:: m,n,i,j
 		complex(dpc)				:: res
-		integer (i4b)			   		:: a, t_index
-		character(len=300)		:: buff
+		integer (i4b)			   	:: a, t_index
+		character(len=300)			:: buff
 
 		if(t < 0) then
 			res = -conjg(dgoft_general_4(m,n,i,j,-t))
@@ -1136,7 +1136,7 @@ module module_montecarlo
 	subroutine generate_trajectory_re(trajectory, factor_out, factor_in, i0, j0, i00, j00, run)
 		integer(i1b), intent(out), dimension(:,:) :: trajectory
 		integer(i4b), intent(in)	:: i0, j0, run, i00, j00
-		real(dp), intent(in)	:: factor_in
+		real(dp), intent(in)		:: factor_in
 		complex(dpc), intent(out), dimension(:)	:: factor_out
 
 		complex(dpc) :: ffactor
@@ -1160,9 +1160,6 @@ module module_montecarlo
 			call print_error_message(-1, "dimension error in generate_trajectory()")
 		end if
 
-!		write(*,*) i0, j0, i00, j00, run
-!		call flush()
-
 		if((.not.(i0 == -1 .and. j0 == -1)) .or. depository) then
 			! if depository is on or we are in first recursion, we zero the trajectory and factor
 !			if(run > 1) then
@@ -1176,9 +1173,6 @@ module module_montecarlo
 
 		if(run > 1) then
 			! we add random histories from depository to trajectory, backwards
-!			write(*,*) '**', run-1
-!			call flush()
-
 			if(depository) then
 				! in this case, i00 and j00 are ignored - they are contained in depository
 				do inside_run=run-1,1,-1
@@ -1186,10 +1180,10 @@ module module_montecarlo
 					a = int(cumulative_random * TRAJECTORIES_STORED + 1.0_dp)
 					b = 0 ! too high b signalizes there is not enough trajectories in that element
 
-					do while(.not.(															&
+					do while(.not.(											&
 					 trajectory_depository(a, 1, STEPS*inside_run) ==		&
-					 	trajectory(1, STEPS*inside_run + 1) 						&
-					 .and.																		&
+					 	trajectory(1, STEPS*inside_run + 1) 				&
+					 .and.													&
 					 trajectory_depository(a, 2, STEPS*inside_run) == 		&
 					 	trajectory(2, STEPS*inside_run + 1)) )
 
@@ -1219,28 +1213,15 @@ module module_montecarlo
 				end if
 
 				if(.not.(i0 == -1 .and. j0 == -1) .and. run - 1 > 1) then
-				do while(.not.(															&
+				do while(.not.(													&
 					 i0 ==	trajectory(1, STEPS*run)			 				&
-					 .and.																	&
+					 .and.														&
 					 j0 ==	trajectory(2, STEPS*run)	) )
 
 					 	call generate_trajectory_cmplx(trajectory, factor_out, factor_in, -1, -1, i00, j00, run-1)
 				end do
 				end if
 
-!				write(*,*) trajectory(1,:)
-!				write(*,*)
-!				write(*,*) trajectory(2,:)
-!				write(*,*)
-!				write(*,*) factor_out(:)
-!				write(*,*)
-!				write(*,*)
-
-!				do u=1,STEPS
-!					trajectory()
-!					trajectory()
-!					factor()
-!				end do
 			end if
 		end if
 
@@ -1249,9 +1230,6 @@ module module_montecarlo
 		trajectory(2,STEPS*(run-1)+1) = j0
 
 		do i=1+STEPS*(run-1), STEPS-1+STEPS*(run-1)
-!			if(run > 1) then
-!				write(*,*) factor_out(i), factor_in
-!			end if
 			factor_out(i+1) = factor_out(i)
 			trajectory(1,i+1) = trajectory(1,i)
 			trajectory(2,i+1) = trajectory(2,i)
@@ -1295,8 +1273,6 @@ module module_montecarlo
 			end do
 			end do
 
-!			write(*,*) '----------->', i+1, trajectory(:,i+1), factor_out(i+1)
-
 42			continue
 		end do
 
@@ -1318,22 +1294,12 @@ module module_montecarlo
 			end do
 		end if
 
-!		if(run > 1) then
-!			write(*,*) trajectory(1,:)
-!			write(*,*)
-!			write(*,*) trajectory(2,:)
-!			write(*,*)
-!			write(*,*) factor_out
-!			write(*,*)
-!		end if
-!
-
 	end subroutine generate_trajectory_cmplx
 
 	subroutine calculate_Ifactor_from_trajectory_history(trajectory,initial_factor,factor_out)
-		integer(i1b), dimension(:,:), intent(in) :: trajectory
+		integer(i1b), dimension(:,:), intent(in) 	:: trajectory
 		complex(dpc), intent(in)					:: initial_factor
-		complex(dpc), dimension(:), intent(out)	:: factor_out
+		complex(dpc), dimension(:), intent(out)		:: factor_out
 
 		real(dp) :: time
 		integer(i4b)	:: 	i, j, k
@@ -1391,15 +1357,15 @@ module module_montecarlo
 	 ! (1-i h_C(t1+t2)-g_C(t1+t2)) ... (1-i h_Z(t1+..+tn)-g_Z(t1+..+tn))^* (1-i h_z(t1+..+tn)-g_z(t1+..+tn))
 	 ! (1-i h_z(t1+..+t(n-1))-g_z(t1+..+t(n-1)))^* (1-i h_y(t1+..+t(n-1))-g_y(t1+..+t(n-1)))
 	subroutine calculate_Gfactor_from_trajectory_history(trajectory,initial_factor,factor_out)
-		integer(i1b), dimension(:,:), intent(in) :: trajectory
+		integer(i1b), dimension(:,:), intent(in) 	:: trajectory
 		complex(dpc), intent(in)					:: initial_factor
-		complex(dpc), dimension(:), intent(out)	:: factor_out
+		complex(dpc), dimension(:), intent(out)		:: factor_out
 
 		! we overallocate jump-fields not to have to always calculate their dimensions
 		integer(i4b), parameter :: overallocation = 10000
 		integer(i4b), dimension(0:overallocation)	::	&
 							jumps_index, jumps_tovalue_ket, jumps_tovalue_bra
-		real(dp), dimension(0:overallocation)	::	&
+		real(dp), dimension(0:overallocation)		::	&
 							jumps_time
 		logical, dimension(0:overallocation) 		::	&
 							jumps_ket
@@ -1738,188 +1704,6 @@ module module_montecarlo
 
 	end subroutine calculate_Gfactor_from_trajectory_history
 
-!	subroutine calculate_Gfactor_from_trajectory_history(trajectory,initial_factor,factor_out)
-!		integer(i1b), dimension(:,:), intent(in) :: trajectory
-!		complex(dpc), intent(in)					:: initial_factor
-!		complex(dpc), dimension(:), intent(out)	:: factor_out
-!
-!		! we overallocate jump-fields not to have to always calculate their dimensions
-!		integer(i4b), parameter :: overallocation = STEPS
-!		integer(i4b), dimension(0:overallocation)	::	&
-!							jumps_index, jumps_tovalue_ket, jumps_tovalue_bra
-!		real(dp), dimension(0:overallocation)		::	&
-!							jumps_time
-!		logical, dimension(0:overallocation) 		::	&
-!							jumps_ket
-!
-!		integer(i4b)	:: 	i, j, k, number_of_jumps, last_index, tovalue,		&
-!							fromvalue, inside_ket_i, inside_ket_j, tmp, tmp2
-!
-!		real(dp) :: time_i, time
-!		logical :: last_round_passed
-!
-!		!number_of_jumps = number_of_trajectory_steps(trajectory)
-!
-!		if(size(trajectory,1) /= 2 .or. size(factor_out) /= size(trajectory,2)) then
-!			call print_error_message(-1, "dimension error in calculate_factor_from_trajectory_history()")
-!		end if
-!
-!		jumps_index(0) 			= 1
-!		jumps_time(0)			= 0.0_dp
-!		jumps_tovalue_ket(0)	= trajectory(1,1)
-!		jumps_tovalue_bra(0)	= trajectory(2,1)
-!
-!		tovalue = 1
-!		fromvalue = 1
-!		i = 1
-!		do while(.true.)
-!			if(tovalue == -1 .or. fromvalue == -1) then
-!				exit
-!			end if
-!			if(i > overallocation) then
-!				call print_error_message(-1,'overallocation insufficient in calculate_Gfactor_from_trajectory_history()')
-!			end if
-!
-!			call next_step_of_trajectory(trajectory, jumps_index(i-1), jumps_index(i), fromvalue, tovalue, jumps_ket(i))
-!
-!			if(jumps_ket(i)) then
-!				jumps_tovalue_ket(i) = tovalue
-!				jumps_tovalue_bra(i) = jumps_tovalue_bra(i-1)
-!			else
-!				jumps_tovalue_ket(i) = jumps_tovalue_ket(i-1)
-!				jumps_tovalue_bra(i) = tovalue
-!			end if
-!
-!			jumps_time(i) = (jumps_index(i)-1)*timeStep
-!			i = i + 1
-!		end do
-!
-!		number_of_jumps = i-1			 -1
-!
-!		write(*,*)
-!		write(*,*) 'draha_bra', trajectory(1,:)
-!		write(*,*) 'draha_ket', trajectory(2,:)
-!		write(*,*) 'jumps', number_of_jumps
-!		write(*,*) 'jumps_index', jumps_index(0:number_of_jumps-1)
-!		write(*,*) 'jumps_tovalue_ket', jumps_tovalue_ket(0:number_of_jumps-1)
-!		write(*,*) 'jumps_tovalue_bra', jumps_tovalue_bra(0:number_of_jumps-1)
-!		write(*,*) 'jumps_time', jumps_time(0:number_of_jumps-1)
-!		write(*,*)
-!		write(*,*) jumps_ket(1:)
-!
-!		factor_out = 0.0_dp
-!
-!		do k=1, size(factor_out)
-!
-!			time = (k-1)*timeStep
-!
-!			if(k > 1) then
-!				factor_out(k) = factor_out(k-1)
-!			else
-!				factor_out(1) = initial_factor
-!			end if
-!
-!		last_round_passed = .false.
-!		do i=1, number_of_jumps+1
-!
-!			if(last_round_passed) then
-!				exit
-!			end if
-!
-!			if(jumps_index(i) >= k .or. i > number_of_jumps) then
-!				time_i = time
-!				last_round_passed = .true.
-!			else
-!				time_i = jumps_time(i)
-!			end if
-!
-!		do inside_ket_i = 1,2
-!
-!			! we assign g-functions and conjugated g-functions (gg)
-!			if(inside_ket_i == 1) then
-!				if(jumps_tovalue_ket(i-1) == 0) then ! ???
-!					factor_out(k) = 0.0_dp
-!					return
-!				else
-!					factor_out(k) = factor_out(k)*&
-!					exp(-goft_site(jumps_tovalue_ket(i-1),jumps_tovalue_ket(i-1),time_i))
-!					write(*,*) 'g', jumps_tovalue_ket(i-1),time_i,factor_out(k)
-!				end if
-!
-!			else
-!				if(jumps_tovalue_bra(i-1) == 0) then ! ???
-!					factor_out(k) = 0.0_dp
-!					return
-!				else
-!					factor_out(k) = factor_out(k)*&
-!					exp(-conjg(goft_site(jumps_tovalue_bra(i-1),jumps_tovalue_bra(i-1),time_i)))
-!					write(*,*) 'gg', jumps_tovalue_bra(i-1),time_i,factor_out(k)
-!				end if
-!			end if
-!
-!		do j=1, i
-!		do inside_ket_j = 1,2
-!
-!			! dealing with last special jump
-!			if(j == i) then
-!				! cycle if not properly ordered or is the same element
-!				if(inside_ket_j >= inside_ket_i) then
-!					cycle
-!				end if
-!
-!				! only if it is popolation element
-!				if(jumps_tovalue_ket(j-1) == jumps_tovalue_bra(i-1)) then
-!					tmp2 = jumps_tovalue_ket(j-1)
-!
-!					factor_out(k) = factor_out(k)*exp(+(	&
-!					+goft_site(tmp2,tmp2,time_i)			&
-!					+goft_site(tmp2,tmp2,-time_i)			&
-!					) )
-!!					write(*,*) 'g-g+g', tmp2,time_i,factor_out(k)
-!				else
-!					cycle
-!				end if
-!			else ! normal run
-!				if((inside_ket_i == 1 .and. inside_ket_j == 1 .and. jumps_tovalue_ket(i-1) /= jumps_tovalue_ket(j-1)) &
-!				.or. (inside_ket_i == 1 .and. inside_ket_j == 2 .and. jumps_tovalue_ket(i-1) /= jumps_tovalue_bra(j-1)) &
-!				.or. (inside_ket_i == 2 .and. inside_ket_j == 1 .and. jumps_tovalue_bra(i-1) /= jumps_tovalue_ket(j-1)) &
-!				.or. (inside_ket_i == 2 .and. inside_ket_j == 2 .and. jumps_tovalue_bra(i-1) /= jumps_tovalue_bra(j-1)) ) then
-!					cycle
-!				end if
-!
-!				if(inside_ket_i == inside_ket_j) then
-!					tmp = -1
-!				else
-!					tmp = 1
-!				end if
-!
-!				if(inside_ket_i == 1) then
-!					tmp2 = jumps_tovalue_ket(i-1)
-!				else
-!					tmp2 = jumps_tovalue_bra(i-1)
-!				end if
-!
-!				factor_out(k) = factor_out(k)*exp(tmp*(		&
-!				+goft_site(tmp2,tmp2,jumps_time(j))			&
-!				-goft_site(tmp2,tmp2,jumps_time(j)-time_i)	&
-!				+goft_site(tmp2,tmp2,-time_i)				&
-!				) )
-!				write(*,*) 'g-g+g', tmp2,jumps_time(j),time_i, 'tmp=',tmp,factor_out(k)
-!			end if
-!
-!		end do
-!		end do
-!		end do
-!
-!!			if(last_round_passed) then
-!!				write(*,*) factor_out(k)
-!!				write(*,*)
-!!			end if
-!
-!		end do
-!		end do
-!	end subroutine calculate_Gfactor_from_trajectory_history
-
 	 ! Let we have U^+_A(t1) V_AB U^+_B(t2) V_BC U^+_C(t3)...U_c(t3)  V_cb  U_b(t2) V_ba U_a(t1)W,
 	 ! then the cummulant expansion is derived from it starts as
 	 ! (1-i h_A(t1)-g_A(t1))^* V_AB(t1) (1-i h_B(t1)-g_B(t1))(1-i h_B(t1+t2)-g_B(t1+t2))^*  V_BC(t1+t2)
@@ -1934,7 +1718,7 @@ module module_montecarlo
 		integer(i4b), parameter :: overallocation = 10000
 		integer(i4b), dimension(0:overallocation)   ::  &
 							jumps_index, jumps_tovalue_ket, jumps_tovalue_bra
-		real(dp), dimension(0:overallocation)	   ::  &
+		real(dp), dimension(0:overallocation)		::  &
 							jumps_time
 		logical, dimension(0:overallocation)		::  &
 							jumps_ket
@@ -1957,8 +1741,8 @@ module module_montecarlo
 		end if
 
 		! we prepare fields representing the jumps
-		jumps_index(0)		  = 1
-		jumps_time(0)		   = 0.0_dp
+		jumps_index(0)		  	= 1
+		jumps_time(0)			= 0.0_dp
 		jumps_tovalue_ket(0)	= trajectory(1,1)
 		jumps_tovalue_bra(0)	= trajectory(2,1)
 
@@ -2311,8 +2095,6 @@ module module_montecarlo
 					endif
 
 
-
-
 					! hV, Vh between bra and ket brackets of the same i (8 h-terms, 4 V-terms, 8 x 4 - 2*8 => 16 pairs)
 						! ket_i == V(ket_j_,ket_j)
 						additive_factor = additive_factor + (Vh_general(ket_j_,ket_j,   ket_i,time_j,time_i))
@@ -2468,12 +2250,10 @@ module module_montecarlo
 
 		end do
 
-		!write(*,*) 'factor', factor_out
-
 	end subroutine calculate_Gfactor_from_trajectory_history_general_basis
 
 	pure subroutine next_step_of_trajectory(trajectory, from_index, tindex, fromvalue, tovalue, ket)
-		integer(i1b), dimension(:,:), intent(in) :: trajectory
+		integer(i1b), dimension(:,:), intent(in) 	:: trajectory
 		integer(i4b), intent(in)					:: from_index
 		integer(i4b), intent(out)					:: tindex, fromvalue, tovalue
 		logical, intent(out)						:: ket
@@ -2508,7 +2288,7 @@ module module_montecarlo
 	pure function number_of_trajectory_steps(trajectory) result(nav)
 		integer(i4b) :: nav
 
-		integer(i1b), dimension(:,:), intent(in) :: trajectory
+		integer(i1b), dimension(:,:), intent(in) 	:: trajectory
 		integer(i4b)								:: tindex, fromvalue, tovalue, from_index
 		logical										:: ket
 
@@ -2537,7 +2317,7 @@ module module_montecarlo
 
 		complex(dpc), dimension(:),   allocatable	:: sig
 		complex(dpc), dimension(:,:), allocatable	:: dat
-		real(dp), dimension(:), allocatable :: rs
+		real(dp), dimension(:), allocatable 		:: rs
 
 		integer :: on, ch, i
 		real(dp) :: oma, rr
@@ -2596,25 +2376,18 @@ module module_montecarlo
 	! Calculation of the first order polarization
 	!
 	subroutine create_polar_1()
-		integer(i4b) :: i,j,k,b, mi,ni
-		integer :: kk, kb
+		integer(i4b) 	:: i,j,k,b, mi,ni
+		integer 		:: kk, kb
 		! this will be a local pointer to the global transition dipole moments
-		real(dp), dimension(:,:), pointer :: dd, dx,dy,dz
+		real(dp), dimension(:,:), pointer 		:: dd, dx,dy,dz
 		! orientation averaging factors
-		real(dp), dimension(:,:), allocatable :: as_orfact
+		real(dp), dimension(:,:), allocatable 	:: as_orfact
 		real(dp) :: vdni, vdmi
 
 		if (.not.allocated(MC_polar_1)) then
 			allocate(MC_polar_1(1:Nt(1)))
 			MC_polar_1 = 0.0_dp
 		end if
-
-!		if (.not.have_coherences) then
-!
-!			call create_coherences()
-!			have_coherences = .true.
-!
-!		end if
 
 		call resources_rewind_blocks()
 
@@ -2691,7 +2464,7 @@ module module_montecarlo
 	! Collect polarizations from all processes
 	!
 	subroutine collect_polar_1()
-	   integer :: N
+		integer :: N
 		character(len=256) :: buff
 
 		N = N_realizations_local
@@ -2744,7 +2517,7 @@ module module_montecarlo
 
 	subroutine seam_superoperators_U(index_from, index_to, type)
 		integer(i4b), intent(in)	:: index_from, index_to
-		character, intent(in) :: type
+		character, intent(in) 		:: type
 
 		complex(dpc), dimension(N1_from_type(type)*N2_from_type(type), N1_from_type(type)*N2_from_type(type)) :: AA, UU, U
 		integer(i4b) :: i
@@ -2789,17 +2562,17 @@ module module_montecarlo
 		! type = 'E', 'O', '2'. If type == '2', arrays are allocated as 0:N1+N1*(N-1)/2,
 		! otherwise 0:N1
 
-	  	character, intent(in)	:: type
-	  	logical	, intent(in)	:: absolute_value, conjugate_coherences
-	  	complex(dpc), dimension(:,:),intent(in) 	:: rho0
+	  	character, intent(in)								:: type
+	  	logical	, intent(in)								:: absolute_value, conjugate_coherences
+	  	complex(dpc), dimension(:,:),intent(in) 			:: rho0
 
-		real(dp), dimension(:,:), allocatable 			:: dd
+		real(dp), dimension(:,:), allocatable 				:: dd
 	  	real(dp) 											:: s, x, magnitude
 	  	complex(dpc)										:: s_c
 	  	integer 											:: a,b,i,j,k,l,Ublock
 
-	  	complex(dpc), dimension(:,:,:), allocatable 						:: rr
-	 	complex(dpc), dimension(:,:,:,:,:), pointer		:: actual_U
+	  	complex(dpc), dimension(:,:,:), allocatable 		:: rr
+	 	complex(dpc), dimension(:,:,:,:,:), pointer			:: actual_U
 	  	character(len=10)	:: cha,chb
 	  	character(len=64)	:: name
 
@@ -2908,9 +2681,9 @@ module module_montecarlo
 	!*************************************************************
 
 	subroutine write_gofts()
-		integer (i4b)	   :: i,j
+		integer (i4b)		:: i,j
 		character(len=4)	:: number_goft
-		character(len=100)  :: name
+		character(len=100)	:: name
 
 		do i=1,size(all_goft)
 
