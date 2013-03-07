@@ -249,7 +249,7 @@ contains
 
 
 
-
+        use_module_hierarchy = .false.
 
 		if(index(trim(method), "_normU") == 0) then
 			tau_projector_normalization_for_others = .false.
@@ -390,6 +390,15 @@ contains
             use_twoexcitons = .true.
             read_external_evops = .false.
             use_module_nakajima_zwanzig = .true.
+            submethod1 = '-'
+            submethod2 = '-'
+
+        else if (index(trim(method), "external-hierarchy") == 1) then
+
+            use_twoexcitons = .true.
+            read_external_evops = .false.
+            use_module_nakajima_zwanzig = .false.
+            use_module_hierarchy = .true.
             submethod1 = '-'
             submethod2 = '-'
 

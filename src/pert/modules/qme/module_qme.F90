@@ -19,6 +19,7 @@ module module_qme
 	use qme_weak_excitons
 	use qme_excitonic_networks
 	use qme_vibronic_networks
+	use qme_hierarchy
 
 	implicit none
 
@@ -82,7 +83,8 @@ contains
 
 			! output of coherences
 			!if (external_data(1) == 1) then
-			if (use_module_nakajima_zwanzig) then
+			if (use_module_nakajima_zwanzig .or. &
+			            use_module_hierarchy) then
 				call read_coherences()
 				have_coherences = .true.
 			else
@@ -100,7 +102,9 @@ contains
 			! output of the first order polarization
 
 			!if (external_data(1) == 1 .and. .not. have_coherences) then
-			if (use_module_nakajima_zwanzig .and. .not. have_coherences) then
+			if ((use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) &
+                                .and. .not. have_coherences) then
 				call read_coherences()
 				have_coherences = .true.
 			end if
@@ -117,7 +121,8 @@ contains
 			! output linear absorption spectrum
 
 			!if (external_data(1) == 1) then
-			if (use_module_nakajima_zwanzig) then
+			if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 				if (.not.have_polar_1) then
 					if (.not. have_coherences) then
 						call read_coherences()
@@ -143,7 +148,8 @@ contains
 			! output of populations and coherences
 
 			!if (external_data(2) == 1) then
-			if (use_module_nakajima_zwanzig) then
+			if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 				call read_pop_coh()
 				have_pop_coh = .true.
 			else
@@ -161,7 +167,8 @@ contains
 
 			! output of 2D spectrum
 			!if (external_data(3) == 1) then
-			if (use_module_nakajima_zwanzig) then
+			if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 		   		if (.not. have_coherences) then
 					call read_coherences()
 					have_coherences = .true.
@@ -205,7 +212,8 @@ contains
 			! output of 1 to 2 exciton coherences
 
 			!if (external_data(3) == 1) then
-			if (use_module_nakajima_zwanzig) then
+			if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 				call read_fe_coh()
 				have_1to2ex_coh = .true.
 
@@ -223,7 +231,8 @@ contains
 
 			if (.not. have_coherences) then
 
-				if (use_module_nakajima_zwanzig) then
+				if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 					call read_coherences()
 					have_coherences = .true.
 				else
@@ -235,7 +244,8 @@ contains
 
 			if (.not. have_pop_coh) then
 
-				if (use_module_nakajima_zwanzig) then
+				if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
 					call read_pop_coh()
 					have_pop_coh = .true.
 				else
@@ -942,8 +952,11 @@ contains
 		!call debug()
 
 		if(sum(current_s_block%QHO_lvls) == 0) then
-			!call read_data(1,N1,1, N1, 'O', submethod1, Nt(1)*gt(1))
-			call fill_evolution_superoperator_nakajima_zwanzig('O',submethod1)
+            if(use_module_nakajima_zwanzig) then
+			    call fill_evolution_superoperator_nakajima_zwanzig('O',submethod1)
+			elseif(use_module_hierarchy) then
+			    call fill_evolution_superoperator_hierarchy('O')
+			end if
 			if (resources_output_contains(NOSE_RDM_B01)) then
 				call write_time_evolutions('O',.false.,.false.)
 			endif
@@ -967,8 +980,11 @@ contains
 		call print_log_message("Reading populations-coherences",5)
 
 		if(sum(current_s_block%QHO_lvls) == 0) then
-			!call read_data(1,N1*N1,1, N1*N1, 'E', submethod2, Nt(1)*gt(1))
-			call fill_evolution_superoperator_nakajima_zwanzig('E',submethod2)
+			if(use_module_nakajima_zwanzig) then
+			    call fill_evolution_superoperator_nakajima_zwanzig('E',submethod2)
+			else if(use_module_hierarchy) then
+			    call fill_evolution_superoperator_hierarchy('E')
+			end if
 			if (resources_output_contains(NOSE_RDM_B11)) then
 				call write_time_evolutions('E',.false.,.false.)
 			endif
@@ -990,8 +1006,11 @@ contains
 		call print_log_message("Reading 1-2 coherences",5)
 
 		if(sum(current_s_block%QHO_lvls) == 0) then
-			!call read_data(1,N1*N1*(N1-1)/2,1, N1*N1*(N1-1)/2, '2', submethod1, Nt(1)*gt(1))
-			call fill_evolution_superoperator_nakajima_zwanzig('2',submethod1)
+			if(use_module_nakajima_zwanzig) then
+			    call fill_evolution_superoperator_nakajima_zwanzig('2',submethod1)
+			else if(use_module_hierarchy) then
+			    call fill_evolution_superoperator_hierarchy('2')
+			end if
 			if (resources_output_contains(NOSE_RDM_B12)) then
 				call write_time_evolutions('2',.false.,.false.)
 			endif
@@ -1499,7 +1518,8 @@ contains
 		end if
 
 		! create bigger matrix of dipole moments
-		if (use_module_nakajima_zwanzig) then
+		if (use_module_nakajima_zwanzig .or. &
+                        use_module_hierarchy) then
       		do k = 1, N1
    				dd(0,k) = current_e_block%dd(k,1)
    				dd(k,0) = current_e_block%dd(k,1)
