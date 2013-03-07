@@ -189,6 +189,8 @@ module module_montecarlo
         call print_log_message(cbuff, 5)
         write(cbuff, '(A L)') "FastG ", vynechani_G_ifu
         call print_log_message(cbuff, 5)
+        write(cbuff, '(A L)') "Exciton basis unraveling ", exciton_basis_unraveling
+        call print_log_message(cbuff, 5)
 
         if(load_evops) then
 
@@ -324,7 +326,7 @@ module module_montecarlo
         end do
 
         ! transformation into excitonic picture
-        if(use_exciton_basis) then
+        if(use_exciton_basis .and. (.not. exciton_basis_unraveling) ) then
             do i=1,Nt(1)
                 if(only_coherences) then
                     call superops_to_exc(evops(1,1)%Ueg(:,:, :,:, INT((i-1)) + 1), 'O')
@@ -437,7 +439,7 @@ module module_montecarlo
                   else
                       rho_out = rho(:,:,i)
                   end if
-                  if(use_exciton_basis) then
+                  if(use_exciton_basis .and. (.not. exciton_basis_unraveling) ) then
                       call operator_to_exc(rho_out,type)
                   end if
 
@@ -506,7 +508,7 @@ module module_montecarlo
                   else
                       rho_out = rho(:,:,i)
                   end if
-                  if(use_exciton_basis) then
+                  if(use_exciton_basis .and. (.not. exciton_basis_unraveling) ) then
                       call operator_to_exc(rho_out,type)
                   end if
 
@@ -617,11 +619,6 @@ module module_montecarlo
             use_exciton_basis = .true.
         end if
 
-        ! this maybe will have to be done in a more sophisticated way...
-        if(exciton_basis_unraveling) then
-            use_exciton_basis = .false.
-        end if
-
         if(fixed_seed) then
             call init_random_seed(0)
         else
@@ -707,7 +704,7 @@ module module_montecarlo
         complex(dpc) :: factor_in
         complex(dpc), dimension(Nl, Nl) :: rho_init
         character(len=256) :: buff
-        integer(i4b), dimension(3) :: cas
+        integer(i4b), dimension(3) :: time
 
         rho = 0.0_dp
         rho_coherent = 0.0_dp
@@ -729,8 +726,8 @@ module module_montecarlo
 
         do run=1, RUNS
 
-            call itime(cas)
-            write(buff, '(A I2 A I2.2 A I2.2 A I6 A F6.4)') '  cas ',cas(1), ':', cas(2), ':', cas(3) , &
+            call itime(time)
+            write(buff, '(A I2 A I2.2 A I2.2 A I6 A F6.4)') '  time ',time(1), ':', time(2), ':', time(3) , &
                             ', STEPS', STEPS, ', timeStep ' , timeStep
             call print_log_message(trim(buff), 5)
 
@@ -789,8 +786,8 @@ module module_montecarlo
                 end if
 
                 if(mod(i,1000) == 0) then
-                            call itime(cas)
-                            write(buff, '(A I2 A I2.2 A I2.2 A I6)') '  cas ',cas(1), ':', cas(2), ':', cas(3) ,  &
+                            call itime(time)
+                            write(buff, '(A I2 A I2.2 A I2.2 A I6)') '  time ',time(1), ':', time(2), ':', time(3) ,  &
                              ', STEPS/1000: ',i/1000+(run-1)*TRAJECTORIES/1000
                             call print_log_message(trim(buff), 5)
                 end if
@@ -875,18 +872,18 @@ module module_montecarlo
 
         end do
 
-        write(*,*) 'fIfGf_cor', fIfGf_cor/TRAJECTORIES
-        write(*,*)
-        write(*,*) 'fIfGf_cor - GI', fIfGf_cor/TRAJECTORIES - (Gf_cor*fIf_cor)/TRAJECTORIES/TRAJECTORIES
-        write(*,*)
-        write(*,*) 'Gf_cor', Gf_cor/TRAJECTORIES
-        write(*,*)
-        write(*,*) 'f_cor', f_cor/TRAJECTORIES
-        write(*,*)
-        write(*,*) 'If_cor', If_cor/TRAJECTORIES
-        write(*,*)
-        write(*,*) 'fIf_cor', fIf_cor/TRAJECTORIES
-        write(*,*)
+        !write(*,*) 'fIfGf_cor', fIfGf_cor/TRAJECTORIES
+        !write(*,*)
+        !write(*,*) 'fIfGf_cor - GI', fIfGf_cor/TRAJECTORIES - (Gf_cor*fIf_cor)/TRAJECTORIES/TRAJECTORIES
+        !write(*,*)
+        !write(*,*) 'Gf_cor', Gf_cor/TRAJECTORIES
+        !write(*,*)
+        !write(*,*) 'f_cor', f_cor/TRAJECTORIES
+        !write(*,*)
+        !write(*,*) 'If_cor', If_cor/TRAJECTORIES
+        !write(*,*)
+        !write(*,*) 'fIf_cor', fIf_cor/TRAJECTORIES
+        !write(*,*)
 
     end subroutine perform_montecarlo
 
@@ -1164,6 +1161,11 @@ module module_montecarlo
         res = 0.0_dp
 
         if(exciton_basis_unraveling) then
+            if(g_functions) then
+                res = 1.0_dp
+            end if
+            ! it would be probably optimal to jump proportionaly to reorganization energy,
+            ! but it will require some thinking since
         else
             ! technically, it should (probably) be state_where_I_am,state_where_to_go for side = 1
             ! and the other way for side = 2, but since the J is symmetric, it doesn't matter
@@ -1228,6 +1230,12 @@ module module_montecarlo
         res = 0.0_dp
 
         if(exciton_basis_unraveling) then
+            ! phase change is the same as in site basis, because of the i/hbar in Schrodinger Eq.
+            if(side == 1) then
+                res = cmplx(0,-1,dpc)/CoherentFactorMultiplierToLowerJumpProb
+            else if(side == 2) then
+                res = cmplx(0,+1,dpc)/CoherentFactorMultiplierToLowerJumpProb
+            end if
         else
             if(side == 1) then
                 res = cmplx(0,-1,dpc)/CoherentFactorMultiplierToLowerJumpProb
@@ -2780,7 +2788,6 @@ module module_montecarlo
         open(UNIT=22, FILE = trim(file_join(out_dir,trim(name))))
 
         j = 1
-        write(*,*) all_goft(i)%gg
         do while (j <= size(all_goft(i)%gg))
             write(22,*) gt(1)*dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
             j = j + 1
