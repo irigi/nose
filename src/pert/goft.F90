@@ -913,6 +913,30 @@ contains
 
     end function dimensionless_CC_LTH
 
+    !
+    ! Dimensionless brownian overdamped int_0^tt int_0^T CC(t,x) dt dT  with approximation from
+    !                    Ishizaki-Fleming PNAS (2009), 106, 17255, formula A2
+    !    x = beta hbar Lambda/2
+    !    T = 2 t / beta hbar
+    !    C(Lambda, ll, t) = Lambda ll CC(T,x)
+    function dimensionless_GG_LTH(T,x,delta) result(GG)
+        real(dp), intent(in)        :: x, T
+        logical, intent(in)         :: delta
+        complex(dpc)                :: GG
+
+        real(dp)                    :: diff
+        integer(i4b)                :: i
+        character(len=256)          :: buff
+
+        GG =      ((t + (exp(-t*x) - 1) / x)*((3 - cmplx(0,1,dpc)*x) * x * x + cmplx(0,1,dpc)*PI_D*PI_D*(cmplx(0,1,dpc) + x)))/(x*x*(x*x - PI_D*PI_D))
+
+        ! first non-delta matsubara term
+        if(.not. delta) then
+            GG = GG + (2*(-1.0_dp + PI_D*t + cosh(PI_D*t) - sinh(PI_D*t)))/(PI_D*PI_D*PI_D - PI_D*x*x)
+        end if
+
+    end function dimensionless_GG_LTH
+
     subroutine brownian_low_temp_hierarchy(params,ggt,cct,hht,lambda,ADD,delta)
         real(dp), dimension(:), intent(in)      :: params
         complex(dpc), dimension(:), pointer     :: ggt
@@ -946,6 +970,7 @@ contains
                 hht_tmp(i) = dt*cct_tmp(i)
                 ggt_tmp(i) = dt*hht_tmp(i)
             end if
+            ggt_tmp(i) = lambda*LLambda*dimensionless_GG_LTH(2.0*t/BH, BH*LLambda/2.0,delta)/(2.0/BH*2.0/BH)
         end do
 
             ! delta-function part of the CF
