@@ -41,9 +41,11 @@ module qme_hierarchy
 
  	! declarations
 
- 	character(len=64), parameter :: external_dir = "external"
+ 	character(len=64), parameter :: external_dir = "external", config_filename = "config.prm", &
+ 	                    out_filename = 'hierarchy_out.dat'
 
     private::write_phi_config_file
+    private::run_phi
 
  	contains
 
@@ -51,14 +53,33 @@ module qme_hierarchy
         character, intent(in) :: type
         integer(i4b) :: i, j
 
-        call write_phi_config_file()
+        if(type == 'O') then
+            do i=1, N1_from_type('O')
+                call write_phi_config_file(i,1,type)
+                call run_phi()
+            end do
+        else if(type == 'E') then
+            do i=1,N1_from_type('E')
+            do j=1,N1_from_type('E')
+                call write_phi_config_file(i,j,type)
+                call run_phi()
+            end do
+            end do
+        end if
     end subroutine fill_evolution_superoperator_hierarchy
 
-    subroutine write_phi_config_file()
-        integer(i4b)                             :: i, j
-        character(len=256)                       :: buff, buff2
+    subroutine write_phi_config_file(i0, j0, type)
+        integer(i4b), intent(in)       :: i0, j0
+        character, intent(in)          :: type
 
-        open(unit=32,file=trim(trim(out_dir)//trim('/../')//trim(external_dir)//trim('/calculation.prm') ) , err=32)
+        integer(i4b)                   :: i, j
+        character(len=256)             :: buff, buff2
+
+        if(type /= 'O' .and. type /= 'E') then
+            call print_error_message(-1, 'unknown type in write_phi_config_file')
+        end if
+
+        open(unit=32,file=trim(trim(out_dir)//trim('/../')//trim(external_dir)//'/'//trim(config_filename) ) , err=32)
 
         if(.false.)then
 32          write(buff,*) trim('Creating directory '//trim(external_dir))
@@ -66,19 +87,19 @@ module qme_hierarchy
 
             write(buff,*) trim(trim('mkdir')//' '//trim(out_dir)//trim('/../')//trim(external_dir) )
             call system(trim(buff))
-            open(unit=32,file=trim(trim(out_dir)//trim('/../')//trim(external_dir)//trim('/calculation.prm') ) , err=42)
+            open(unit=32,file=trim(trim(out_dir)//trim('/../')//trim(external_dir)//'/'//trim(config_filename) ) , err=42)
         end if
 
         write(buff,'(A,I1,A)') '(A,I', int(ceiling(0.01 + log(real( N1_from_type('E') + 1 ))/log(10.0))) ,')'
         !write(buff2,'(A,I1,A)') '(A,I', int(ceiling(0.01 + log(real( N1_from_type('E') + 1 ))/log(10.0))) ,')'
 
         write(32,'(A)') '# Number of sites'
-        write(32,trim(buff)) 'NumStates=',                                           N1_from_type('E')+1
+        write(32,trim(buff)) 'NumStates=',          N1_from_type('E')+1
         write(32,'(A)') '# Number of baths'
-        write(32,trim(buff)) 'NumCouplingTerms=',                                    N1_from_type('E')+1
+        write(32,trim(buff)) 'NumCouplingTerms=',   N1_from_type('E')+1
         write(32,'(A)') 'HierarchyTruncation=4'
         write(32,'(A)') 'MatsubaraTerms=1'
-        write(32,'(A)') 'OutputFile=out.dat'
+        write(32,'(A)') 'OutputFile='//adjustl(trim(out_filename))
         write(32,'(A)') '#T in Kelvin'
         write(buff2,'(F10.3)') temp
         write(32,'(A)') trim('Temperature='//adjustl(trim(buff2)))
@@ -115,7 +136,12 @@ module qme_hierarchy
 
         write(32,'(A)', advance='no') '0'
         do i=1,N1_from_type('E')
-            write(32,'(A)', advance='no') ', 0'
+            if((type == 'O' .and. i0 == i .and. j == 1) .or. &
+                type == 'E' .and. i0 == i .and. j0 == j-1) then
+                write(32,'(A)', advance='no') ', 1'
+            else
+                write(32,'(A)', advance='no') ', 0'
+            end if
         end do
         write(32,'(A)') ' '
 
@@ -136,7 +162,7 @@ module qme_hierarchy
         write(32,'(A)') '# reorganization energies in cm^-1'
         write(32,'(A)') 'lambda:'
 
-        write(32,'(A)', advance='no') '0.001' ! for ground state lambda
+        write(32,'(A)', advance='no') '1' ! for ground state lambda
         do j=1, N1_from_type('E')
             ! for a lack of fantasy, I use reorganization energies defined by
             ! imaginary part of first integral of correlation functions, this is,
@@ -161,10 +187,15 @@ module qme_hierarchy
 
     return
 
-42  write(*,*) trim(trim(out_dir)//trim('/../')//trim(external_dir)//trim('/calculation.prm') ), ' could not be created, exiting...'
+42  write(*,*) trim(trim(out_dir)//trim('/../')//trim(external_dir)//'/'//trim(config_filename) ), ' could not be created, exiting...'
     stop
 
     end subroutine write_phi_config_file
+
+    subroutine run_phi
+        !call system('pwd')
+        call system('phi '//trim(trim(out_dir)//trim('/../')//trim(external_dir)//'/'//trim(config_filename) )//' rk4 2')
+    end subroutine run_phi
 
 end module qme_hierarchy
 
