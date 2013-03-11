@@ -259,7 +259,7 @@ do n = 1, Nsys
     w = (n-1)*Nsys + m - (n*(n+1))/2
 
     do np = 1, Nsys
-      do mp = (n+1), Nsys
+      do mp = (np+1), Nsys
         wp = (np-1)*Nsys + mp - (np*(np+1))/2
 
 	if (n == np) then
