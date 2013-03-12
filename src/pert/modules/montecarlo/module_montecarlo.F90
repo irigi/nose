@@ -94,6 +94,8 @@ module module_montecarlo
 	private::get_coherent_dynamics
 	private::seam_superoperators_U
 
+	private::write_gofts
+
 	interface generate_trajectory
 		module procedure generate_trajectory_re
 		module procedure generate_trajectory_cmplx
@@ -137,6 +139,7 @@ module module_montecarlo
 		end if
 
 		call init_monte_carlo()
+		call write_gofts()
 
 		if(debug_gamma > 1e-12) then
 			write(cbuff, '(A F6.4 A)') "Using debugging Gamma = ",debug_gamma," - result is unphysical"
@@ -2237,6 +2240,70 @@ module module_montecarlo
       	deallocate(rr)
 
 	end subroutine write_time_evolutions
+
+
+    !*************************************************************
+    !  Writing out correlation functions
+    !*************************************************************
+
+    subroutine write_gofts()
+        integer (i4b)       :: i,j
+        character(len=4)    :: number_goft
+        character(len=100)  :: name
+
+        do i=1,size(all_goft)
+
+        if(i < 10) then
+            write(number_goft,'(i1)')   i
+        else if (i < 100) then
+            write(number_goft,'(i2)')   i
+        else
+            write(number_goft,'(i3)')   i
+        endif
+
+        ! goft
+        name = trim('site_goft') // trim(number_goft) // '.dat'
+
+        open(UNIT=22, FILE = trim(file_join(out_dir,trim(name))))
+
+        j = 1
+        write(*,*) all_goft(i)%gg
+        do while (j <= size(all_goft(i)%gg))
+            write(22,*) gt(1)*dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
+            j = j + 1
+        end do
+
+        close(UNIT=22)
+
+        ! hoft
+        name = trim('site_hoft') // trim(number_goft) // '.dat'
+
+        open(UNIT=22, FILE = trim(file_join(out_dir,trim(name))))
+
+        j = 1
+        do while (j <= size(all_hoft(i)%gg))
+            write(22,*) gt(1)*dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
+            j = j + 1
+        end do
+
+        close(UNIT=22)
+
+        ! coft
+        name = trim('site_coft') // trim(number_goft) // '.dat'
+
+        open(UNIT=22, FILE = trim(file_join(out_dir,trim(name))))
+
+        j = 1
+        do while (j <= size(all_goft(i)%gg))
+            write(22,*) gt(1)*dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
+            j = j + 1
+        end do
+
+        close(UNIT=22)
+
+        end do
+    end subroutine write_gofts
+
 
 
 
