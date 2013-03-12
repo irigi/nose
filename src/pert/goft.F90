@@ -975,6 +975,8 @@ contains
 
             ! delta-function part of the CF
         do i=1, Ntt
+            t = (i-1)*dt
+
             if(delta) then
                 hht_tmp(i) = hht_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))
                 ggt_tmp(i) = ggt_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))*t
