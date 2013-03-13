@@ -313,7 +313,7 @@ do tier = 1, tmax
 !              write(*,*) "permutation ", currentperm, " exists"
            end if
         end do
-        if (permexists == .False.) then ! if not, add it to the list
+        if (permexists .eqv. .False.) then ! if not, add it to the list
           perm(currentindex, :) = currentperm(:)
           currentindex = currentindex + 1                       
 !          write(*,*) "new permutation ", currentperm
@@ -746,8 +746,9 @@ end if ! calculatenonreph
 contains
 
 function fact(x)
-  real*8:: j, fact, result
+  real*8:: fact, result
   integer*4, intent(in):: x
+  integer*4 :: j
   result = 1
   do j=1, x
    result = result * j
@@ -778,7 +779,7 @@ function permindex (permutation)
                 isfound = .True.
                 findex = 0
         end if
-        do while ((isfound == .false.) .and. (findex < fend))  ! actually, findex >= fend should never happen if all permutations are present in perm
+        do while ((isfound .eqv. .false.) .and. (findex < fend))  ! actually, findex >= fend should never happen if all permutations are present in perm
                                                  ! but we include it for use when perm can be pruned.
           if (ALL(perm(findex,:) == permutation(:))) then
              isfound = .True.
@@ -786,7 +787,7 @@ function permindex (permutation)
           findex = findex + 1
         end do
 
-        if (isfound == .false.) then
+        if (isfound .eqv. .false.) then
                 findex = 0
         end if
         
