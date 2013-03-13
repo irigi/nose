@@ -41,7 +41,7 @@ module qme_hierarchy
 
  	! declarations
 
- 	character(len=64), parameter :: external_dir = "external", config_filename = "config.prm", &
+ 	character(len=64), parameter, private :: external_dir = "external", config_filename = "config.prm", &
  	                    out_filename = 'hierarchy_out.dat'
 
 
@@ -73,13 +73,13 @@ module qme_hierarchy
     complex(dpc), allocatable, private:: opPlusLeft3(:,:,:,:), opPlusRight3(:,:,:,:), opMinLeft3(:,:,:,:), opMinRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft1(:,:,:), opPlusLeft1(:,:,:,:), opMinLeft1(:,:,:,:)
     complex(dpc), allocatable, private:: signal(:,:), signalpar(:,:), signalper(:,:)
-    real(dp), allocatable, private:: lambda(:), beta(:), gamma(:), Dtrans(:), Dlong(:)
+    real(dp), allocatable, private:: lambda(:), beta(:), LLambda(:), Dtrans(:), Dlong(:)
     complex(dpc), private:: pc, ps, rhosum, mem, orcoeffpar
     complex(dpc), parameter, private:: izero = dcmplx(0.0, 0.0)
     complex(dpc), parameter, private:: iconst = dcmplx(0.0, 1.0)
 
-    integer(i4b):: Nhier = 1! number of density matrices in hierarchy
-    integer(i4b):: tt, nin, s, s2, nnt1, nt1in, nnt3, nnt2, w1, w2
+    integer(i4b), private :: Nhier = 1! number of density matrices in hierarchy
+    integer(i4b), private :: tt, nin, s, s2, nnt1, nt1in, nnt3, nnt2, w1, w2
 
     integer(i4b), allocatable, private :: perm(:,:)
     integer(i4b), allocatable, private :: permplus(:,:), permmin(:,:)
@@ -91,18 +91,18 @@ module qme_hierarchy
 
     ! polarization components
     ! during t1, we need delta = x (1), y (2) and z (3)
-    ! during t2, we have delta gamma = xx (1), xy (2), xz (3), yx (4), yy (5),
+    ! during t2, we have delta LLambda = xx (1), xy (2), xz (3), yx (4), yy (5),
     ! yz (6), zx (7), zy (8), zz (9)
     ! during t2, we then need to multiply these to form
-    ! delta gamma beta = xxx (1), xxy (2), xxz(3), xyx (4), xyy(5), xzx(6),
+    ! delta LLambda beta = xxx (1), xxy (2), xxz(3), xyx (4), xyy(5), xzx(6),
     ! xzz (7), yxx (8), yxy (9), yyx (10), yyy (11), yyz (12), yzy (13),
     ! yzz (14), zxx (15), zxz (16), zyy (17), zyz (18), zzx (19), zzy (20),
     ! zzz (21)
 
-    integer, parameter, private:: dirinda(21) = (/ 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3 /)
-    integer, parameter, private:: dirindb(21) = (/ 1, 1, 1, 2, 2, 3, 3, 1, 1, 2, 2, 2, 3, 3, 1, 1, 2, 2, 3, 3, 3 /)
-    integer, parameter, private:: dirindc(21) = (/ 1, 2, 3, 1, 2, 1, 3, 1, 2, 1, 2, 3, 2, 3, 1, 3, 2, 3, 1, 2, 3 /)
-    integer, parameter, private:: dirindd(21) = (/ 1, 2, 3, 2, 1, 3, 1, 2, 1, 1, 2, 3, 3, 2, 3, 1, 3, 2, 1, 2, 3 /)
+    integer(i4b), parameter, private:: dirinda(21) = (/ 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3 /)
+    integer(i4b), parameter, private:: dirindb(21) = (/ 1, 1, 1, 2, 2, 3, 3, 1, 1, 2, 2, 2, 3, 3, 1, 1, 2, 2, 3, 3, 3 /)
+    integer(i4b), parameter, private:: dirindc(21) = (/ 1, 2, 3, 1, 2, 1, 3, 1, 2, 1, 2, 3, 2, 3, 1, 3, 2, 3, 1, 2, 3 /)
+    integer(i4b), parameter, private:: dirindd(21) = (/ 1, 2, 3, 2, 1, 3, 1, 2, 1, 1, 2, 3, 3, 2, 3, 1, 3, 2, 1, 2, 3 /)
 
     ! xxxx, xxyy, xxzz, xyxy, xyyx, xzxz, xzzx, yxxy, yxyx, yyxx,
     ! yyyy, yyzz, yzyz, yzzy, zxxz, zxzx, zyyz, zyzy, zzxx, zzyy, zzzz
@@ -128,26 +128,26 @@ module qme_hierarchy
     end subroutine fill_evolution_superoperator_hierarchy
 
     subroutine arend_main()
-    Nind = NSB
+      Nind = NSB
 
-    do tt = 1, tmax
-      Nhier = Nhier + numpermt(tt)
-    end do
+      do tt = 1, tmax
+        Nhier = Nhier + numpermt(tt)
+      end do
 
-    write(*,*) 'number of elements in hierarchy = ', Nhier
+      write(*,*) 'number of elements in hierarchy = ', Nhier
 
-    call arend_allocate()
+      call arend_allocate()
 
     ! parameters for system-bath coupling
     lambda(1) = 0.5 ! 10.0
-    gamma(1) = 2.0
+    LLambda(1) = 2.0
     beta(1) = 0.13
     Dlong(1) = 1.0
     Dtrans(1) = 0.0
 
     do s = 2, NSB
       lambda(s) = lambda(1)
-      gamma(s) = gamma(1)
+      LLambda(s) = LLambda(1)
       beta(s) = beta(1)
       Dlong(s) = Dlong(1)
       Dtrans(s) = Dtrans(1)
@@ -157,11 +157,8 @@ module qme_hierarchy
     ! system Hamiltonian
     HS(1,1) = 3.0
     HS(2,2) = -3.0
-    !HS(3,3) = 0.0
     HS(1,2) = -5.0
     HS(2,1) = -5.0
-    !HS(2,3) = 1.0
-    !HS(3,2) = 1.0
 
     ! transition dipoles
     mu(1,1) = 1.0
@@ -170,9 +167,6 @@ module qme_hierarchy
     mu(2,1) = 1.0
     mu(2,2) = 0.0
     mu(2,3) = 0.0
-    !mu(3,1) = 1.0
-    !mu(3,2) = 0.0
-    !mu(3,3) = 0.0
 
     ! system-bath coupling, no correlation
     do s=1, NSB
@@ -260,9 +254,9 @@ module qme_hierarchy
     write(*,*) "index complete"
 
 
-    call arend_initmult1
-    call arend_initmult2
-    call arend_initmult3
+    call arend_initmult1()
+    call arend_initmult2()
+    call arend_initmult3()
 
 
     ! REPHASING
@@ -418,42 +412,42 @@ module qme_hierarchy
 
     write(*,*) "rephasing calculation complete"
 
-    !output
-    open (55, File='reph.par.re' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    !output
+!    open (55, File='reph.par.re' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='reph.per.re' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='reph.per.re' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='reph.par.im' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='reph.par.im' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='reph.per.im' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='reph.per.im' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
 
 
@@ -613,47 +607,48 @@ module qme_hierarchy
 
     write(*,*) "non-rephasing calculation complete"
 
-    !output
-    open (55, File='nonreph.par.re' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    !output
+!    open (55, File='nonreph.par.re' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='nonreph.per.re' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='nonreph.per.re' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='nonreph.par.im' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='nonreph.par.im' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
-    open (55, File='nonreph.per.im' )
-    do nnt1 = 1, Ntimestept1
-      do nnn = 1, Ntimestept3
-      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
-      end do
-      write(55,*)
-    end do
-    close(55)
+!    open (55, File='nonreph.per.im' )
+!    do nnt1 = 1, Ntimestept1
+!      do nnn = 1, Ntimestept3
+!      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
+!      end do
+!      write(55,*)
+!    end do
+!    close(55)
 
 
 
     end if ! calculatenonreph
 
+    call arend_deallocate()
 
     end subroutine arend_main
 
@@ -702,7 +697,7 @@ module qme_hierarchy
 
 
       ALLOCATE(beta,(NSB))
-      ALLOCATE(gamma,(NSB))
+      ALLOCATE(LLambda,(NSB))
       ALLOCATE(lambda,(NSB))
       ALLOCATE(Dlong,(NSB))
       ALLOCATE(Dtrans,(NSB))
@@ -746,12 +741,79 @@ module qme_hierarchy
       ALLOCATE(mu,(Nsys, 3))
     end subroutine arend_allocate
 
+    subroutine arend_deallocate()
+      DEALLOCATE(rho1)
+      DEALLOCATE(prhodx1)
+      DEALLOCATE(prhox1)
+
+      DEALLOCATE(rho2)
+      DEALLOCATE(prhodx2)
+      DEALLOCATE(prhox2)
+
+      DEALLOCATE(rho3)
+      DEALLOCATE(prhodx3)
+      DEALLOCATE(prhox3)
+
+      DEALLOCATE(rho3s)
+      DEALLOCATE(prhodx3s)
+      DEALLOCATE(prhox3s)
+
+      DEALLOCATE(HS)
+
+      DEALLOCATE(V)
+
+      DEALLOCATE(HS2)
+
+      DEALLOCATE(V2)
+
+      DEALLOCATE(beta)
+      DEALLOCATE(LLambda)
+      DEALLOCATE(lambda)
+      DEALLOCATE(Dlong)
+      DEALLOCATE(Dtrans)
+
+      DEALLOCATE(perm)
+      DEALLOCATE(currentperm)
+
+      DEALLOCATE(opLeft1)
+      DEALLOCATE(opPlusLeft1)
+      DEALLOCATE(opMinLeft1)
+
+      DEALLOCATE(opLeft2)
+      DEALLOCATE(opRight2)
+
+      DEALLOCATE(opLRLeft2)
+      DEALLOCATE(opLRRight2)
+      DEALLOCATE(opPlusLeft2)
+      DEALLOCATE(opPlusRight2)
+      DEALLOCATE(opMinLeft2)
+      DEALLOCATE(opMinRight2)
+
+      DEALLOCATE(opLeft3)
+      DEALLOCATE(opRight3)
+      DEALLOCATE(opLRLeft3)
+      DEALLOCATE(opLRRight3)
+      DEALLOCATE(opPlusLeft3)
+      DEALLOCATE(opPlusRight3)
+      DEALLOCATE(opMinLeft3)
+      DEALLOCATE(opMinRight3)
+
+      DEALLOCATE(permplus)
+
+      DEALLOCATE(permmin)
+
+      DEALLOCATE(signal)
+      DEALLOCATE(signalpar)
+      DEALLOCATE(signalper)
+
+      DEALLOCATE(mu)
+    end subroutine arend_deallocate
 
 
     function fact(x)
       real(dp):: fact, result
-      integer*4, intent(in):: x
-      integer*4 :: j
+      integer(i4b), intent(in):: x
+      integer(i4b) :: j
       result = 1
       do j=1, x
        result = result * j
@@ -760,17 +822,17 @@ module qme_hierarchy
     end function fact
 
     function numpermt(tier) ! number of permutations in tier
-      integer, intent(in):: tier
-      integer*4 :: numpermt, tmp
+      integer(i4b), intent(in):: tier
+      integer(i4b) :: numpermt, tmp
           numpermt = int(fact(Nind+tier-1)/(fact(Nind-1)*fact(tier)))
     end function numpermt
 
 
     function permindex (permutation)
-       integer:: permindex
-       integer, intent(in):: permutation(Nind)
+       integer(i4b):: permindex
+       integer(i4b), intent(in):: permutation(Nind)
        logical:: isfound
-       integer:: findex, tt, fend
+       integer(i4b):: findex, tt, fend
 
             isfound = .False.
             findex = 1
@@ -799,8 +861,8 @@ module qme_hierarchy
     end function permindex
 
     function nplus (nin, jin)
-      integer, intent(in):: nin, jin
-      integer:: nplus
+      integer(i4b), intent(in):: nin, jin
+      integer(i4b):: nplus
 
       currentperm = perm(nin, :)
       currentperm(jin) = currentperm(jin) + 1
@@ -815,8 +877,8 @@ module qme_hierarchy
 
 
     function nmin (nin, jin)
-      integer, intent(in):: nin, jin
-      integer:: nmin
+      integer(i4b), intent(in):: nin, jin
+      integer(i4b):: nmin
 
       currentperm = perm(nin, :)
 
@@ -834,10 +896,10 @@ module qme_hierarchy
 
 
     function nu(j, m)
-      integer, intent(in):: j, m
+      integer(i4b), intent(in):: j, m
       complex(dpc):: nu
       if (m == 0) then
-        nu = gamma(j)
+        nu = LLambda(j)
       else
         nu = 2*pi*m/beta(j)
       end if
@@ -850,10 +912,10 @@ module qme_hierarchy
     !end function cot
 
     function cconst(j)
-      integer, intent(in):: j
+      integer(i4b), intent(in):: j
       complex(dpc):: cconst
 
-      cconst = 2*lambda(j)/beta(j) - dcmplx(0.0,1.0) * lambda(j) * gamma(j)
+      cconst = 2*lambda(j)/beta(j) - dcmplx(0.0,1.0) * lambda(j) * LLambda(j)
 
     end function cconst
 
@@ -861,7 +923,7 @@ module qme_hierarchy
 
     subroutine arend_initmult1
     ! initialize the propagator for a coherence |1><0|
-    integer:: n, j
+    integer(i4b):: n, j
     complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
     complex(dpc):: musum, nu1, jsum
     complex(dpc), allocatable:: identity(:,:)
@@ -880,7 +942,7 @@ module qme_hierarchy
 
       musum = 0
       do j=1, NSB
-        musum = musum + perm(n, j) * gamma(j)
+        musum = musum + perm(n, j) * LLambda(j)
       end do
 
 
@@ -891,7 +953,7 @@ module qme_hierarchy
       do j=1, NSB
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*gamma(j)/(nu1*nu1 - gamma(j)*gamma(j))
+        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
         opLeft1(n,:,:) = opLeft1(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
 
        opPlusLeft1(n,j,:,:) =  opPlusLeft1(n,j,:,:) - iconst * V(j,:,:)
@@ -899,7 +961,7 @@ module qme_hierarchy
        opMinLeft1(n,j,:,:) =  opMinLeft1(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
 
        ! first low temperature correction term, see Ishizaki PNAS 2009
-       opMinLeft1(n,j,:,:) = opMinLeft1(n,j,:,:) - iconst * perm(n,j)*jsum * gamma(j) * V(j,:,:)
+       opMinLeft1(n,j,:,:) = opMinLeft1(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
 
       end do
 
@@ -915,7 +977,7 @@ module qme_hierarchy
 
     subroutine arend_initmult2
     ! initialize the propagator for populations and coherences |1><1'|
-    integer:: n, j
+    integer(i4b):: n, j
     complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
     complex(dpc):: musum, nu1, jsum
     complex(dpc), allocatable:: identity(:,:)
@@ -939,7 +1001,7 @@ module qme_hierarchy
 
       musum = 0
       do j=1, NSB
-        musum = musum + perm(n, j) * gamma(j)
+        musum = musum + perm(n, j) * LLambda(j)
       end do
 
 
@@ -952,21 +1014,21 @@ module qme_hierarchy
 
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*gamma(j)/(nu1*nu1 - gamma(j)*gamma(j))
+        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
         opLeft2(n,:,:) = opLeft2(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
         opRight2(n,:,:)= opRight2(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
         opLRLeft2(n,j,:,:) =  opLRLeft2(n,j,:,:) + 2*jsum * V(j,:,:)
         opLRRight2(n,j,:,:) =  opLRRight2(n,j,:,:) + V(j,:,:)
 
-       opPlusLeft2(n,j,:,:) =  opPlusLeft2(n,j,:,:) - iconst * V(j,:,:)
-       opPlusRight2(n,j,:,:) =  opPlusRight2(n,j,:,:) + iconst * V(j,:,:)
+        opPlusLeft2(n,j,:,:) =  opPlusLeft2(n,j,:,:) - iconst * V(j,:,:)
+        opPlusRight2(n,j,:,:) =  opPlusRight2(n,j,:,:) + iconst * V(j,:,:)
 
-       opMinLeft2(n,j,:,:) =  opMinLeft2(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
-       opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
+        opMinLeft2(n,j,:,:) =  opMinLeft2(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
+        opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
 
-       ! first low temperature correction term, see Ishizaki PNAS 2009
-       opMinLeft2(n,j,:,:) = opMinLeft2(n,j,:,:) - iconst * perm(n,j)*jsum * gamma(j) * V(j,:,:)
-       opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst * perm(n,j)*jsum * gamma(j) * V(j,:,:)
+        ! first low temperature correction term, see Ishizaki PNAS 2009
+        opMinLeft2(n,j,:,:) = opMinLeft2(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+        opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
 
       end do
 
@@ -1004,7 +1066,7 @@ module qme_hierarchy
 
       musum = 0
       do j=1, NSB
-        musum = musum + perm(n, j) * gamma(j)
+        musum = musum + perm(n, j) * LLambda(j)
       end do
 
 
@@ -1016,19 +1078,18 @@ module qme_hierarchy
       do j=1, NSB
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*gamma(j)/(nu1*nu1 - gamma(j)*gamma(j))
+        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
         opLeft3(n,:,:) = opLeft3(n,:,:) - jsum * MATMUL(V2(j,:,:), V2(j,:,:))
         opRight3(n,:,:)= opRight3(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
         opLRLeft3(n,j,:,:) =  opLRLeft3(n,j,:,:) + 2*jsum * V2(j,:,:)
         opLRRight3(n,j,:,:) =  opLRRight3(n,j,:,:) + V(j,:,:)
-       opPlusLeft3(n,j,:,:) =  opPlusLeft3(n,j,:,:) - iconst * V2(j,:,:)
-       opPlusRight3(n,j,:,:) =  opPlusRight3(n,j,:,:) + iconst * V(j,:,:)
-       opMinLeft3(n,j,:,:) =  opMinLeft3(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V2(j,:,:)
-       opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
-       ! first low temperature correction term, see Ishizaki PNAS 2009
-       opMinLeft3(n,j,:,:) = opMinLeft3(n,j,:,:) - iconst * perm(n,j)*jsum * gamma(j) * V2(j,:,:)
-       opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst * perm(n,j)*jsum * gamma(j) * V(j,:,:)
-
+        opPlusLeft3(n,j,:,:) =  opPlusLeft3(n,j,:,:) - iconst * V2(j,:,:)
+        opPlusRight3(n,j,:,:) =  opPlusRight3(n,j,:,:) + iconst * V(j,:,:)
+        opMinLeft3(n,j,:,:) =  opMinLeft3(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V2(j,:,:)
+        opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
+        ! first low temperature correction term, see Ishizaki PNAS 2009
+        opMinLeft3(n,j,:,:) = opMinLeft3(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V2(j,:,:)
+        opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
       end do
 
     end do
@@ -1321,7 +1382,7 @@ module qme_hierarchy
 
 
         write(32,'(A)') '# cutoff frequencies in ps^-1]'
-        write(32,'(A)') 'gamma:'
+        write(32,'(A)') 'LLambda:'
         write(32,'(A)', advance='no') '10'
         do j=1, N1_from_type('E')
             write(buff2,'(F10.3)') 10.0
