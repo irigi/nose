@@ -837,6 +837,7 @@ contains
 
 	end subroutine brownian
 
+    ! Ishizaki - Fleming JCP 130 (2009) 2.20
 	subroutine brownian_no_matsubara(params,ggt,cct,hht,lambda,ADD)
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
@@ -863,8 +864,7 @@ contains
         do i=1, Ntt
         	t = (i-1)*dt
 
-	        cct_tmp(i) = lambda*LLambda*&
-	        	exp(-(2.0*t/BH)*(BH*LLambda/2.0))*(1.0_dp/tan(BH*LLambda/2.0) - cmplx(0,1,dpc))
+	        cct_tmp(i) = 2*lambda/BH*exp(-t*LLambda) - lambda*LLambda*exp(-t*LLambda)*cmplx(0,1,dpc)
 	        if(i > 1) then
     	    	hht_tmp(i) = hht_tmp(i-1) + dt*cct_tmp(i)
         		ggt_tmp(i) = ggt_tmp(i-1) + dt*hht_tmp(i)
