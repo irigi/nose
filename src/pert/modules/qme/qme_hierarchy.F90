@@ -47,15 +47,15 @@ module qme_hierarchy
 
 
 
-    integer(i4b), parameter, private:: Nsys = 2 ! system size
-    integer(i4b), parameter, private:: NSB = 2 ! number of SB coupling terms
+    integer(i4b), private:: Nsys ! system size
+    integer(i4b), private:: NSB  ! number of SB coupling terms
     integer(i4b), parameter, private:: tmax = 8 ! depth of the hierarchy
-    integer(i4b), parameter, private:: Ntimestept1 = 200 ! number of time steps during t1 in outer loop
-    integer(i4b), parameter, private:: Ntimestept1in = 25 ! number of time steps during t1 in inner loop
-    integer(i4b), parameter, private:: Ntimestept2 = 0 ! number of time steps during t2 in outer loop
-    integer(i4b), parameter, private:: Ntimestept2in = 25 ! number of time steps during t2 in inner loop
-    integer(i4b), parameter, private:: Ntimestept3 = 200 ! number of time steps during t3 in outer loop
-    integer(i4b), parameter, private:: Ntimestept3in = 25 ! number of time steps during t3 in inner loop
+    integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
+    integer(i4b), private:: Ntimestept1in = 25 ! number of time steps during t1 in inner loop
+    integer(i4b), private:: Ntimestept2   = 0 ! number of time steps during t2 in outer loop
+    integer(i4b), private:: Ntimestept2in = 25 ! number of time steps during t2 in inner loop
+    integer(i4b), private:: Ntimestept3   = 0 ! number of time steps during t3 in outer loop
+    integer(i4b), private:: Ntimestept3in = 25 ! number of time steps during t3 in inner loop
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
@@ -118,6 +118,14 @@ module qme_hierarchy
     private::run_phi
     private::fill_evolution_superoperator_hierarchy_phi
 
+    private::arend_init
+    private::arend_allocate
+    private::arend_deallocate
+
+    private::arend_initmult1
+    private::arend_initmult2
+    private::arend_initmult3
+
  	contains
 
     subroutine fill_evolution_superoperator_hierarchy(type)
@@ -128,29 +136,23 @@ module qme_hierarchy
     end subroutine fill_evolution_superoperator_hierarchy
 
     subroutine arend_main()
-      Nind = NSB
-
-      do tt = 1, tmax
-        Nhier = Nhier + numpermt(tt)
-      end do
-
-      write(*,*) 'number of elements in hierarchy = ', Nhier
-
+      call arend_init()
       call arend_allocate()
 
-    ! parameters for system-bath coupling
-    lambda(1) = 0.5 ! 10.0
-    LLambda(1) = 2.0
-    beta(1) = 0.13
-    Dlong(1) = 1.0
-    Dtrans(1) = 0.0
 
-    do s = 2, NSB
-      lambda(s) = lambda(1)
-      LLambda(s) = LLambda(1)
-      beta(s) = beta(1)
-      Dlong(s) = Dlong(1)
-      Dtrans(s) = Dtrans(1)
+    ! parameters for system-bath coupling
+    do s = 1, NSB
+      lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
+      LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
+      beta(s) = 1/kB_intK/temp
+      Dlong(s) = 0.0_dp
+      Dtrans(s) = 0.0_dp
+
+      write(*,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
+      write(*,*) ';LLambda ', LLambda(s)
+      write(*,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
+      write(*,*) ';Dlong   ', Dlong(s)
+      write(*,*) ';Dtrans  ', Dtrans(s)
     end do
 
 
@@ -648,11 +650,24 @@ module qme_hierarchy
 
     end if ! calculatenonreph
 
-    call arend_deallocate()
+      call arend_deallocate()
 
     end subroutine arend_main
 
+    subroutine arend_init()
+      NSB = N1_from_type('E')
+      Nsys = NSB
+      Nind = NSB
 
+      do tt = 1, tmax
+        Nhier = Nhier + numpermt(tt)
+      end do
+
+      Ntimestept1 = gt(1)*Nt(1)
+      Ntimestept3 = gt(3)*Nt(3)
+
+      write(*,*) 'number of elements in hierarchy = ', Nhier
+    end subroutine arend_init
 
     subroutine arend_allocate()
       ALLOCATE(rho1,(Nhier+1, Nsys)) ! +1: store zeros in the last density matrix
