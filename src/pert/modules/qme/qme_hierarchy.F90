@@ -48,7 +48,6 @@ module qme_hierarchy
 
 
     integer(i4b), private:: Nsys ! system size
-    integer(i4b), private:: NSB  ! number of SB coupling terms
     integer(i4b), parameter, private:: tmax = 8 ! depth of the hierarchy
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
     integer(i4b), private:: Ntimestept1in = 25 ! number of time steps during t1 in inner loop
@@ -141,7 +140,7 @@ module qme_hierarchy
 
 
     ! parameters for system-bath coupling
-    do s = 1, NSB
+    do s = 1, Nsys
       lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
       LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
       beta(s) = 1/kB_intK/temp
@@ -157,21 +156,27 @@ module qme_hierarchy
 
 
     ! system Hamiltonian
-    HS(1,1) = 3.0
-    HS(2,2) = -3.0
-    HS(1,2) = -5.0
-    HS(2,1) = -5.0
+    HS = 0.0_dp
+    do s=1, Nsys
+    do s2=1, Nsys
+      if(s == s2) then
+        HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
+      else
+        HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
+      end if
+    end do
+    end do
 
-    ! transition dipoles
-    mu(1,1) = 1.0
-    mu(1,2) = 0.0
-    mu(1,3) = 0.0
-    mu(2,1) = 1.0
-    mu(2,2) = 0.0
-    mu(2,3) = 0.0
+    ! transition dipoles, (Hilbert space index, xyz-index)
+    mu = 0.0_dp
+    do s=1, Nsys
+        mu(s,1) = current_s_block%dx(s,1)
+        mu(s,2) = current_s_block%dy(s,1)
+        mu(s,3) = current_s_block%dz(s,1)
+    end do
 
     ! system-bath coupling, no correlation
-    do s=1, NSB
+    do s=1, Nsys
       V(s,s,s) = dcmplx(Dlong(s))
     end do
 
@@ -186,25 +191,25 @@ module qme_hierarchy
 
         if (n == nnp) then
                HS2(w, wp) = HS2(w, wp) + HS(m, mp)
-               do s = 1, NSB
+               do s = 1, Nsys
              V2(s, w, wp) = V2(s, w, wp) + V(s, m, mp)
                end do
             end if
         if (n == mp) then
                HS2(w, wp) = HS2(w, wp) + HS(m, nnp)
-               do s = 1, NSB
+               do s = 1, Nsys
              V2(s, w, wp) = V2(s, w, wp) + V(s, m, nnp)
                end do
             end if
         if (m == nnp) then
                HS2(w, wp) = HS2(w, wp) + HS(n, mp)
-               do s = 1, NSB
+               do s = 1, Nsys
              V2(s, w, wp) = V2(s, w, wp) + V(s, n, mp)
                end do
             end if
         if (m == mp) then
                HS2(w, wp) = HS2(w, wp) + HS(n, nnp)
-               do s = 1, NSB
+               do s = 1, Nsys
              V2(s, w, wp) = V2(s, w, wp) + V(s, n, nnp)
                end do
             end if
@@ -247,7 +252,7 @@ module qme_hierarchy
 
     ! cache plus and minus
     do nnn = 1, Nhier
-      do s = 1, NSB
+      do s = 1, Nsys
         permplus(nnn, s) = nplus(nnn, s)
         permmin(nnn, s) = nmin(nnn, s)
       end do
@@ -655,9 +660,8 @@ module qme_hierarchy
     end subroutine arend_main
 
     subroutine arend_init()
-      NSB = N1_from_type('E')
-      Nsys = NSB
-      Nind = NSB
+      Nsys = N1_from_type('E')
+      Nind = Nsys
 
       do tt = 1, tmax
         Nhier = Nhier + numpermt(tt)
@@ -701,53 +705,53 @@ module qme_hierarchy
       ALLOCATE(HS,(Nsys, Nsys))
       Hs = 0.0
 
-      ALLOCATE(V,(NSB, Nsys, Nsys))
+      ALLOCATE(V,(Nsys, Nsys, Nsys))
       V = 0.0
 
       ALLOCATE(HS2,((Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
       HS2 = 0.0
 
-      ALLOCATE(V2,(NSB, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
+      ALLOCATE(V2,(Nsys, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
       V2 = 0.0
 
 
-      ALLOCATE(beta,(NSB))
-      ALLOCATE(LLambda,(NSB))
-      ALLOCATE(lambda,(NSB))
-      ALLOCATE(Dlong,(NSB))
-      ALLOCATE(Dtrans,(NSB))
+      ALLOCATE(beta,(Nsys))
+      ALLOCATE(LLambda,(Nsys))
+      ALLOCATE(lambda,(Nsys))
+      ALLOCATE(Dlong,(Nsys))
+      ALLOCATE(Dtrans,(Nsys))
 
 
       ALLOCATE(perm,(Nhier, Nind))
       ALLOCATE(currentperm,(Nind))
 
       ALLOCATE(opLeft1,(Nhier, Nsys, Nsys))
-      ALLOCATE(opPlusLeft1,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opMinLeft1,(Nhier, NSB, Nsys, Nsys))
+      ALLOCATE(opPlusLeft1,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opMinLeft1,(Nhier, Nsys, Nsys, Nsys))
 
 
       ALLOCATE(opLeft2,(Nhier, Nsys, Nsys))
       ALLOCATE(opRight2,(Nhier, Nsys, Nsys))
 
-      ALLOCATE(opLRLeft2,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opLRRight2,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opPlusLeft2,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opPlusRight2,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opMinLeft2,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opMinRight2,(Nhier, NSB, Nsys, Nsys))
+      ALLOCATE(opLRLeft2,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opLRRight2,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opPlusLeft2,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opPlusRight2,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opMinLeft2,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opMinRight2,(Nhier, Nsys, Nsys, Nsys))
 
       ALLOCATE(opLeft3,(Nhier, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
       ALLOCATE(opRight3,(Nhier, Nsys, Nsys))
-      ALLOCATE(opLRLeft3,(Nhier, NSB, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
-      ALLOCATE(opLRRight3,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opPlusLeft3,(Nhier, NSB, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
-      ALLOCATE(opPlusRight3,(Nhier, NSB, Nsys, Nsys))
-      ALLOCATE(opMinLeft3,(Nhier, NSB, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
-      ALLOCATE(opMinRight3,(Nhier, NSB, Nsys, Nsys))
+      ALLOCATE(opLRLeft3,(Nhier, Nsys, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
+      ALLOCATE(opLRRight3,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opPlusLeft3,(Nhier, Nsys, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
+      ALLOCATE(opPlusRight3,(Nhier, Nsys, Nsys, Nsys))
+      ALLOCATE(opMinLeft3,(Nhier, Nsys, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
+      ALLOCATE(opMinRight3,(Nhier, Nsys, Nsys, Nsys))
 
-      ALLOCATE(permplus,(Nhier, NSB))
+      ALLOCATE(permplus,(Nhier, Nsys))
 
-      ALLOCATE(permmin,(Nhier, NSB))
+      ALLOCATE(permmin,(Nhier, Nsys))
 
       ALLOCATE(signal,(Ntimestept1, Ntimestept3))
       ALLOCATE(signalpar,(Ntimestept1, Ntimestept3))
@@ -956,7 +960,7 @@ module qme_hierarchy
     do n = 1, Nhier
 
       musum = 0
-      do j=1, NSB
+      do j=1, Nsys
         musum = musum + perm(n, j) * LLambda(j)
       end do
 
@@ -965,7 +969,7 @@ module qme_hierarchy
 
       opLeft1(n,:,:) = opLeft1(n,:,:) - musum * identity
 
-      do j=1, NSB
+      do j=1, Nsys
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
         jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
@@ -1015,7 +1019,7 @@ module qme_hierarchy
     do n = 1, Nhier
 
       musum = 0
-      do j=1, NSB
+      do j=1, Nsys
         musum = musum + perm(n, j) * LLambda(j)
       end do
 
@@ -1025,7 +1029,7 @@ module qme_hierarchy
 
       opLeft2(n,:,:) = opLeft2(n,:,:) - musum * identity
 
-      do j=1, NSB
+      do j=1, Nsys
 
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
@@ -1080,7 +1084,7 @@ module qme_hierarchy
     do n = 1, Nhier
 
       musum = 0
-      do j=1, NSB
+      do j=1, Nsys
         musum = musum + perm(n, j) * LLambda(j)
       end do
 
@@ -1090,7 +1094,7 @@ module qme_hierarchy
 
       opLeft3(n,:,:) = opLeft3(n,:,:) - musum * identity
 
-      do j=1, NSB
+      do j=1, Nsys
         ! first low temperature correction term, see Ishizaki PNAS 2009
         nu1 = 2*pi/beta(j)
         jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
@@ -1131,7 +1135,7 @@ module qme_hierarchy
 
       result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
 
-      do j=1, NSB
+      do j=1, Nsys
         result(n,:) = result(n,:) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),:))
         result(n,:) = result(n,:) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),:))
       end do
@@ -1199,7 +1203,7 @@ module qme_hierarchy
       result(n,:,:) = result(n,:,:) + MATMUL(opLeft2(n,:,:), rhoin(n,:,:))
       result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight2(n,:,:))
 
-      do j=1, NSB
+      do j=1, Nsys
         result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,:,:)), opLRRight2(n,j,:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight2(n,j,:,:))
@@ -1239,7 +1243,7 @@ module qme_hierarchy
       result(n,:,:) = result(n,:,:) + MATMUL(opLeft3(n,:,:), rhoin(n,:,:))
       result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight3(n,:,:))
 
-      do j=1, NSB
+      do j=1, Nsys
         result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft3(n,j,:,:), rhoin(n,:,:)), opLRRight3(n,j,:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft3(n,j, :,:), rhoin(permplus(n,j),:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight3(n,j,:,:))
