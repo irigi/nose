@@ -120,6 +120,7 @@ module qme_hierarchy
     private::arend_init
     private::arend_allocate
     private::arend_deallocate
+    private::arend_fill_parameters
 
     private::arend_initmult1
     private::arend_initmult2
@@ -137,87 +138,7 @@ module qme_hierarchy
     subroutine arend_main()
       call arend_init()
       call arend_allocate()
-
-
-    ! parameters for system-bath coupling
-    do s = 1, Nsys
-      lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
-      LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
-      beta(s) = 1/kB_intK/temp
-      Dlong(s) = 0.0_dp
-      Dtrans(s) = 0.0_dp
-
-      write(*,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
-      write(*,*) ';LLambda ', LLambda(s)
-      write(*,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
-      write(*,*) ';Dlong   ', Dlong(s)
-      write(*,*) ';Dtrans  ', Dtrans(s)
-    end do
-
-
-    ! system Hamiltonian
-    HS = 0.0_dp
-    do s=1, Nsys
-    do s2=1, Nsys
-      if(s == s2) then
-        HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
-      else
-        HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
-      end if
-    end do
-    end do
-
-    ! transition dipoles, (Hilbert space index, xyz-index)
-    mu = 0.0_dp
-    do s=1, Nsys
-        mu(s,1) = current_s_block%dx(s,1)
-        mu(s,2) = current_s_block%dy(s,1)
-        mu(s,3) = current_s_block%dz(s,1)
-    end do
-
-    ! system-bath coupling, no correlation
-    do s=1, Nsys
-      V(s,s,s) = dcmplx(Dlong(s))
-    end do
-
-    ! 2-quantum Hamiltonian and system-bath coupling operators
-    do n = 1, Nsys
-      do m = (n+1), Nsys
-        w = (n-1)*Nsys + m - (n*(n+1))/2
-
-        do nnp = 1, Nsys
-          do mp = (nnp+1), Nsys
-            wp = (nnp-1)*Nsys + mp - (nnp*(nnp+1))/2
-
-        if (n == nnp) then
-               HS2(w, wp) = HS2(w, wp) + HS(m, mp)
-               do s = 1, Nsys
-             V2(s, w, wp) = V2(s, w, wp) + V(s, m, mp)
-               end do
-            end if
-        if (n == mp) then
-               HS2(w, wp) = HS2(w, wp) + HS(m, nnp)
-               do s = 1, Nsys
-             V2(s, w, wp) = V2(s, w, wp) + V(s, m, nnp)
-               end do
-            end if
-        if (m == nnp) then
-               HS2(w, wp) = HS2(w, wp) + HS(n, mp)
-               do s = 1, Nsys
-             V2(s, w, wp) = V2(s, w, wp) + V(s, n, mp)
-               end do
-            end if
-        if (m == mp) then
-               HS2(w, wp) = HS2(w, wp) + HS(n, nnp)
-               do s = 1, Nsys
-             V2(s, w, wp) = V2(s, w, wp) + V(s, n, nnp)
-               end do
-            end if
-
-          end do
-         end do
-      end do
-    end do
+      call arend_fill_parameters()
 
     ! build index
     tierstart = 1 ! first element of the current tier
@@ -828,6 +749,90 @@ module qme_hierarchy
       DEALLOCATE(mu)
     end subroutine arend_deallocate
 
+
+    subroutine arend_fill_parameters()
+
+      ! parameters for system-bath coupling
+      do s = 1, Nsys
+        lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
+        LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
+        beta(s) = 1/kB_intK/temp
+        Dlong(s) = 0.0_dp
+        Dtrans(s) = 0.0_dp
+
+        write(*,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
+        write(*,*) ';LLambda ', LLambda(s)
+        write(*,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
+        write(*,*) ';Dlong   ', Dlong(s)
+        write(*,*) ';Dtrans  ', Dtrans(s)
+      end do
+
+
+      ! system Hamiltonian
+      HS = 0.0_dp
+      do s=1, Nsys
+      do s2=1, Nsys
+        if(s == s2) then
+          HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
+        else
+          HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
+        end if
+      end do
+      end do
+
+      ! transition dipoles, (Hilbert space index, xyz-index)
+      mu = 0.0_dp
+      do s=1, Nsys
+          mu(s,1) = current_s_block%dx(s,1)
+          mu(s,2) = current_s_block%dy(s,1)
+          mu(s,3) = current_s_block%dz(s,1)
+      end do
+
+      ! system-bath coupling, no correlation
+      do s=1, Nsys
+        V(s,s,s) = dcmplx(Dlong(s))
+      end do
+
+      ! 2-quantum Hamiltonian and system-bath coupling operators
+      do n = 1, Nsys
+        do m = (n+1), Nsys
+          w = (n-1)*Nsys + m - (n*(n+1))/2
+
+          do nnp = 1, Nsys
+            do mp = (nnp+1), Nsys
+              wp = (nnp-1)*Nsys + mp - (nnp*(nnp+1))/2
+
+          if (n == nnp) then
+                 HS2(w, wp) = HS2(w, wp) + HS(m, mp)
+                 do s = 1, Nsys
+               V2(s, w, wp) = V2(s, w, wp) + V(s, m, mp)
+                 end do
+              end if
+          if (n == mp) then
+                 HS2(w, wp) = HS2(w, wp) + HS(m, nnp)
+                 do s = 1, Nsys
+               V2(s, w, wp) = V2(s, w, wp) + V(s, m, nnp)
+                 end do
+              end if
+          if (m == nnp) then
+                 HS2(w, wp) = HS2(w, wp) + HS(n, mp)
+                 do s = 1, Nsys
+               V2(s, w, wp) = V2(s, w, wp) + V(s, n, mp)
+                 end do
+              end if
+          if (m == mp) then
+                 HS2(w, wp) = HS2(w, wp) + HS(n, nnp)
+                 do s = 1, Nsys
+               V2(s, w, wp) = V2(s, w, wp) + V(s, n, nnp)
+                 end do
+              end if
+
+            end do
+           end do
+        end do
+      end do
+
+    end subroutine arend_fill_parameters
 
     function fact(x)
       real(dp):: fact, result
