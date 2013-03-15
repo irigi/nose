@@ -834,21 +834,10 @@ module qme_hierarchy
 
     end subroutine arend_fill_parameters
 
-    function fact(x)
-      real(dp):: fact, result
-      integer(i4b), intent(in):: x
-      integer(i4b) :: j
-      result = 1
-      do j=1, x
-       result = result * j
-      end do
-      fact = result
-    end function fact
-
     function numpermt(tier) ! number of permutations in tier
       integer(i4b), intent(in):: tier
       integer(i4b) :: numpermt, tmp
-          numpermt = int(fact(Nind+tier-1)/(fact(Nind-1)*fact(tier)))
+          numpermt = int(factorial(Nind+tier-1)/(factorial(Nind-1)*factorial(tier)))
     end function numpermt
 
 
