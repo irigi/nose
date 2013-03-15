@@ -140,46 +140,87 @@ module qme_hierarchy
       call arend_allocate()
       call arend_fill_parameters()
 
-    ! build index
-    tierstart = 1 ! first element of the current tier
-    currentindex = 2
+      ! build index
+      tierstart = 1 ! first element of the current tier
+      currentindex = 2
 
-    currentperm = 0.0
-    perm = 0.0
+      currentperm = 0.0
+      perm = 0.0
 
-    do tier = 1, tmax
-      tierstart = tierstart + numpermt(tier-1)
-      !write(*,*) "tier = ", tier, ", tierstart = ", tierstart
-      do kk1 = currentindex-numpermt(tier-1), currentindex-1 ! loop over all elements in the previous tier
-        do kk2 = 1, Nind ! try to add a ball at position kk2
-            currentperm(:) = perm(kk1, :)
-            currentperm(kk2) = currentperm(kk2) + 1
-            permexists = .False.
-            do nnn = tierstart, currentindex-1 ! check if it is already in the list
-               if ( ALL(perm(nnn, :) == currentperm) ) then
-                  permexists = .True.
-    !              write(*,*) "permutation ", currentperm, " exists"
-               end if
-            end do
-            if (permexists .eqv. .False.) then ! if not, add it to the list
-              perm(currentindex, :) = currentperm(:)
-              currentindex = currentindex + 1
-    !          write(*,*) "new permutation ", currentperm
-            end if
+      do tier = 1, tmax
+        tierstart = tierstart + numpermt(tier-1)
+        do kk1 = currentindex-numpermt(tier-1), currentindex-1 ! loop over all elements in the previous tier
+          do kk2 = 1, Nind ! try to add a ball at position kk2
+              currentperm(:) = perm(kk1, :)
+              currentperm(kk2) = currentperm(kk2) + 1
+              permexists = .False.
+              do nnn = tierstart, currentindex-1 ! check if it is already in the list
+                 if ( ALL(perm(nnn, :) == currentperm) ) then
+                    permexists = .True.
+                    !write(*,*) "permutation ", currentperm, " exists"
+                 end if
+              end do
+              if (permexists .eqv. .False.) then ! if not, add it to the list
+                perm(currentindex, :) = currentperm(:)
+                currentindex = currentindex + 1
+                !write(*,*) "new permutation ", currentperm
+              end if
 
+           end do
          end do
-       end do
-    end do
-
-    ! cache plus and minus
-    do nnn = 1, Nhier
-      do s = 1, Nsys
-        permplus(nnn, s) = nplus(nnn, s)
-        permmin(nnn, s) = nmin(nnn, s)
       end do
-    end do
 
-    write(*,*) "index complete"
+      !do s = 1, size(perm,1)
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
+      !  end do
+      !  write(*,*)
+      !end do
+      !write(*,*)
+
+      ! cache plus and minus
+      do nnn = 1, Nhier
+        do s = 1, Nsys
+          permplus(nnn, s) = nplus(nnn, s)
+          permmin(nnn, s) = nmin(nnn, s)
+        end do
+      end do
+
+      !! debug text to understand the tiers and permutations
+      !do s = 1, size(perm,1)
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
+      !  end do
+      !
+      !  write(*,'(A)',advance='no') '   '
+      !
+      !  do s2 = 1, size(perm,2)
+      !  if(permplus(s,s2) < 1 .or. permplus(s,s2) > size(perm,1)) then
+      !    cycle
+      !  end if
+      !
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(permplus(s,s2),nnn),' '
+      !  end do
+      !  end do !s2
+      !
+      !  write(*,'(A)',advance='no') '   '
+      !
+      !  do s2 = 1, size(perm,2)
+      !  if(permmin(s,s2) < 1 .or. permmin(s,s2) > size(perm,1)) then
+      !    cycle
+      !  end if
+      !
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(permmin(s,s2),nnn),' '
+      !  end do
+      !  end do !s2
+      !
+      !  write(*,*)
+      !end do
+      !write(*,*)
+
+      call print_log_message("index complete",5)
 
 
     call arend_initmult1()
@@ -840,7 +881,7 @@ module qme_hierarchy
           numpermt = int(factorial(Nind+tier-1)/(factorial(Nind-1)*factorial(tier)))
     end function numpermt
 
-
+    ! return the index of given permutation
     function permindex (permutation)
        integer(i4b):: permindex
        integer(i4b), intent(in):: permutation(Nind)
@@ -917,12 +958,6 @@ module qme_hierarchy
         nu = 2*pi*m/beta(j)
       end if
     end function nu
-
-    !function cot(x)
-    !  real(dp), intent(in):: x
-    !  real(dp):: cot
-    !  cot = cos(x) / sin(x)
-    !end function cot
 
     function cconst(j)
       integer(i4b), intent(in):: j
