@@ -223,9 +223,81 @@ module qme_hierarchy
       call print_log_message("index complete",5)
 
 
-    call arend_initmult1()
-    call arend_initmult2()
-    call arend_initmult3()
+      call arend_initmult1()
+      call arend_initmult2()
+      call arend_initmult3()
+
+
+      ! Initial condition
+      do nnn = 1, Nhier
+        do s=1, Nsys
+          rho1(nnn, s) = mu(s, dir1)
+        end do
+      end do
+
+
+      do nnt1 = 1, Ntimestept1
+        write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
+        call flush()
+
+        ! SE and IA
+
+        ! initialize t2
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+            end do
+          end do
+        end do
+
+        ! propagate t2
+        do nnt2 = 1, Ntimestept2
+          do nin = 1, Ntimestept2in
+            call arend_propagate2(dt)
+          end do
+          !write(*,*) '     t2 =', nnt2
+        end do
+
+        ! SE
+
+        ! initialize t3
+        rho3s = 0.0
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
+            end do
+          end do
+        end do
+
+        do nnt3 = 1, Ntimestept3
+           ! calculate signal
+           do s = 1, Nsys
+              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
+            end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3s(dt)
+           end do
+        end do
+
+
+
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagate1reph(dt)
+        end do
+
+      end do ! over nnt
+
+
+
+
+
+
+      stop
 
 
     ! REPHASING
@@ -629,8 +701,13 @@ module qme_hierarchy
         Nhier = Nhier + numpermt(tt)
       end do
 
-      Ntimestept1 = gt(1)*Nt(1)
-      Ntimestept3 = gt(3)*Nt(3)
+      Ntimestept1 = Nt(1)
+      Ntimestept2 = Nt(2)
+      Ntimestept3 = Nt(3)
+      Ntimestept1in = gt(1)
+      Ntimestept2in = gt(2)
+      Ntimestept3in = gt(3)
+
 
       write(*,*) 'number of elements in hierarchy = ', Nhier
     end subroutine arend_init
@@ -970,53 +1047,53 @@ module qme_hierarchy
 
 
     subroutine arend_initmult1
-    ! initialize the propagator for a coherence |1><0|
-    integer(i4b):: n, j
-    complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
-    complex(dpc):: musum, nu1, jsum
-    complex(dpc), allocatable:: identity(:,:)
+      ! initialize the propagator for a coherence |1><0|
+      integer(i4b):: n, j
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+      complex(dpc):: musum, nu1, jsum
+      complex(dpc), allocatable:: identity(:,:)
 
-    ALLOCATE(identity,(Nsys, Nsys))
+      ALLOCATE(identity,(Nsys, Nsys))
 
-    do n=1, Nsys
-      identity(n, n) = 1.0
-    end do
-
-    opLeft1 = 0.0
-    opPlusLeft1 = 0.0
-    opMinLeft1 = 0.0
-
-    do n = 1, Nhier
-
-      musum = 0
-      do j=1, Nsys
-        musum = musum + perm(n, j) * LLambda(j)
+      identity = 0.0_dp
+      do n=1, Nsys
+        identity(n, n) = 1.0_dp
       end do
 
+      opLeft1 = 0.0
+      opPlusLeft1 = 0.0
+      opMinLeft1 = 0.0
 
-      opLeft1(n,:,:) = opLeft1(n,:,:) - iconst * HS
+      do n = 1, Nhier
 
-      opLeft1(n,:,:) = opLeft1(n,:,:) - musum * identity
+        musum = 0
+        do j=1, Nsys
+          musum = musum + perm(n, j) * LLambda(j)
+        end do
 
-      do j=1, Nsys
-        ! first low temperature correction term, see Ishizaki PNAS 2009
-        nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
-        opLeft1(n,:,:) = opLeft1(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
 
-       opPlusLeft1(n,j,:,:) =  opPlusLeft1(n,j,:,:) - iconst * V(j,:,:)
+        opLeft1(n,:,:) = opLeft1(n,:,:) - iconst * HS
 
-       opMinLeft1(n,j,:,:) =  opMinLeft1(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
+        opLeft1(n,:,:) = opLeft1(n,:,:) - musum * identity
 
-       ! first low temperature correction term, see Ishizaki PNAS 2009
-       opMinLeft1(n,j,:,:) = opMinLeft1(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+        do j=1, Nsys
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          nu1 = 2*pi/beta(j)
+          jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
+          opLeft1(n,:,:) = opLeft1(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
+
+          opPlusLeft1(n,j,:,:) =  opPlusLeft1(n,j,:,:) - iconst * V(j,:,:)
+
+          opMinLeft1(n,j,:,:) =  opMinLeft1(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
+
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          opMinLeft1(n,j,:,:) = opMinLeft1(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+
+        end do
 
       end do
 
-    end do
-
-    DEALLOCATE(identity)
-
+      DEALLOCATE(identity)
     end subroutine arend_initmult1
 
 
@@ -1024,126 +1101,125 @@ module qme_hierarchy
 
 
     subroutine arend_initmult2
-    ! initialize the propagator for populations and coherences |1><1'|
-    integer(i4b):: n, j
-    complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
-    complex(dpc):: musum, nu1, jsum
-    complex(dpc), allocatable:: identity(:,:)
+      ! initialize the propagator for populations and coherences |1><1'|
+      integer(i4b):: n, j
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+      complex(dpc):: musum, nu1, jsum
+      complex(dpc), allocatable:: identity(:,:)
 
-    ALLOCATE(identity,(Nsys, Nsys))
+      ALLOCATE(identity,(Nsys, Nsys))
 
-    do n=1, Nsys
-      identity(n, n) = 1.0
-    end do
-
-    opLeft2 = 0.0
-    opRight2 = 0.0
-    opLRLeft2 = 0.0
-    opLRRight2 = 0.0
-    opPlusLeft2 = 0.0
-    opPlusRight2 = 0.0
-    opMinLeft2 = 0.0
-    opMinRight2 = 0.0
-
-    do n = 1, Nhier
-
-      musum = 0
-      do j=1, Nsys
-        musum = musum + perm(n, j) * LLambda(j)
+      identity = 0.0_dp
+      do n=1, Nsys
+        identity(n, n) = 1.0_dp
       end do
 
+      opLeft2 = 0.0
+      opRight2 = 0.0
+      opLRLeft2 = 0.0
+      opLRRight2 = 0.0
+      opPlusLeft2 = 0.0
+      opPlusRight2 = 0.0
+      opMinLeft2 = 0.0
+      opMinRight2 = 0.0
 
-      opLeft2(n,:,:) = opLeft2(n,:,:) - iconst * HS
-      opRight2(n,:,:) = opRight2(n,:,:) + iconst * HS
+      do n = 1, Nhier
 
-      opLeft2(n,:,:) = opLeft2(n,:,:) - musum * identity
+        musum = 0
+        do j=1, Nsys
+          musum = musum + perm(n, j) * LLambda(j)
+        end do
 
-      do j=1, Nsys
 
-        ! first low temperature correction term, see Ishizaki PNAS 2009
-        nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
-        opLeft2(n,:,:) = opLeft2(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
-        opRight2(n,:,:)= opRight2(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
-        opLRLeft2(n,j,:,:) =  opLRLeft2(n,j,:,:) + 2*jsum * V(j,:,:)
-        opLRRight2(n,j,:,:) =  opLRRight2(n,j,:,:) + V(j,:,:)
+        opLeft2(n,:,:) = opLeft2(n,:,:) - iconst * HS
+        opRight2(n,:,:) = opRight2(n,:,:) + iconst * HS
 
-        opPlusLeft2(n,j,:,:) =  opPlusLeft2(n,j,:,:) - iconst * V(j,:,:)
-        opPlusRight2(n,j,:,:) =  opPlusRight2(n,j,:,:) + iconst * V(j,:,:)
+        opLeft2(n,:,:) = opLeft2(n,:,:) - musum * identity
 
-        opMinLeft2(n,j,:,:) =  opMinLeft2(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
-        opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
+        do j=1, Nsys
 
-        ! first low temperature correction term, see Ishizaki PNAS 2009
-        opMinLeft2(n,j,:,:) = opMinLeft2(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
-        opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          nu1 = 2*pi/beta(j)
+          jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
+          opLeft2(n,:,:) = opLeft2(n,:,:) - jsum * MATMUL(V(j,:,:), V(j,:,:))
+          opRight2(n,:,:)= opRight2(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
+          opLRLeft2(n,j,:,:) =  opLRLeft2(n,j,:,:) + 2*jsum * V(j,:,:)
+          opLRRight2(n,j,:,:) =  opLRRight2(n,j,:,:) + V(j,:,:)
+
+          opPlusLeft2(n,j,:,:) =  opPlusLeft2(n,j,:,:) - iconst * V(j,:,:)
+          opPlusRight2(n,j,:,:) =  opPlusRight2(n,j,:,:) + iconst * V(j,:,:)
+
+          opMinLeft2(n,j,:,:) =  opMinLeft2(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V(j,:,:)
+          opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
+
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          opMinLeft2(n,j,:,:) = opMinLeft2(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+          opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+
+        end do
 
       end do
 
-    end do
-
-    DEALLOCATE(identity)
-
+      DEALLOCATE(identity)
     end subroutine arend_initmult2
 
 
     subroutine arend_initmult3
-    ! initialize the propagator for 2-1 exciton coherences |2><1|
-    integer:: n, j
-    complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
-    complex(dpc):: musum, nu1, jsum
-    complex(dpc), allocatable:: identity(:,:)
+      ! initialize the propagator for 2-1 exciton coherences |2><1|
+      integer:: n, j
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+      complex(dpc):: musum, nu1, jsum
+      complex(dpc), allocatable:: identity(:,:)
 
-    ALLOCATE(identity,((Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
+      ALLOCATE(identity,((Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
 
-    identity = 0.0
-    do n=1, (Nsys*(Nsys-1))/2
-      identity(n, n) = 1.0
-    end do
-
-    opLeft3 = 0.0
-    opRight3 = 0.0
-    opLRLeft3 = 0.0
-    opLRRight3 = 0.0
-    opPlusLeft3 = 0.0
-    opPlusRight3 = 0.0
-    opMinLeft3 = 0.0
-    opMinRight3 = 0.0
-
-    do n = 1, Nhier
-
-      musum = 0
-      do j=1, Nsys
-        musum = musum + perm(n, j) * LLambda(j)
+      identity = 0.0_dp
+      do n=1, (Nsys*(Nsys-1))/2
+        identity(n, n) = 1.0_dp
       end do
 
+      opLeft3 = 0.0
+      opRight3 = 0.0
+      opLRLeft3 = 0.0
+      opLRRight3 = 0.0
+      opPlusLeft3 = 0.0
+      opPlusRight3 = 0.0
+      opMinLeft3 = 0.0
+      opMinRight3 = 0.0
 
-      opLeft3(n,:,:) = opLeft3(n,:,:) - iconst * HS2
-      opRight3(n,:,:) = opRight3(n,:,:) + iconst * HS
+      do n = 1, Nhier
 
-      opLeft3(n,:,:) = opLeft3(n,:,:) - musum * identity
+        musum = 0
+        do j=1, Nsys
+          musum = musum + perm(n, j) * LLambda(j)
+        end do
 
-      do j=1, Nsys
-        ! first low temperature correction term, see Ishizaki PNAS 2009
-        nu1 = 2*pi/beta(j)
-        jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
-        opLeft3(n,:,:) = opLeft3(n,:,:) - jsum * MATMUL(V2(j,:,:), V2(j,:,:))
-        opRight3(n,:,:)= opRight3(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
-        opLRLeft3(n,j,:,:) =  opLRLeft3(n,j,:,:) + 2*jsum * V2(j,:,:)
-        opLRRight3(n,j,:,:) =  opLRRight3(n,j,:,:) + V(j,:,:)
-        opPlusLeft3(n,j,:,:) =  opPlusLeft3(n,j,:,:) - iconst * V2(j,:,:)
-        opPlusRight3(n,j,:,:) =  opPlusRight3(n,j,:,:) + iconst * V(j,:,:)
-        opMinLeft3(n,j,:,:) =  opMinLeft3(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V2(j,:,:)
-        opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
-        ! first low temperature correction term, see Ishizaki PNAS 2009
-        opMinLeft3(n,j,:,:) = opMinLeft3(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V2(j,:,:)
-        opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+
+        opLeft3(n,:,:) = opLeft3(n,:,:) - iconst * HS2
+        opRight3(n,:,:) = opRight3(n,:,:) + iconst * HS
+
+        opLeft3(n,:,:) = opLeft3(n,:,:) - musum * identity
+
+        do j=1, Nsys
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          nu1 = 2*pi/beta(j)
+          jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
+          opLeft3(n,:,:) = opLeft3(n,:,:) - jsum * MATMUL(V2(j,:,:), V2(j,:,:))
+          opRight3(n,:,:)= opRight3(n,:,:) -  jsum * MATMUL(V(j,:,:), V(j,:,:))
+          opLRLeft3(n,j,:,:) =  opLRLeft3(n,j,:,:) + 2*jsum * V2(j,:,:)
+          opLRRight3(n,j,:,:) =  opLRRight3(n,j,:,:) + V(j,:,:)
+          opPlusLeft3(n,j,:,:) =  opPlusLeft3(n,j,:,:) - iconst * V2(j,:,:)
+          opPlusRight3(n,j,:,:) =  opPlusRight3(n,j,:,:) + iconst * V(j,:,:)
+          opMinLeft3(n,j,:,:) =  opMinLeft3(n,j,:,:) - iconst*perm(n, j)*cconst(j) * V2(j,:,:)
+          opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst*perm(n, j)*conjg(cconst(j)) * V(j,:,:)
+          ! first low temperature correction term, see Ishizaki PNAS 2009
+          opMinLeft3(n,j,:,:) = opMinLeft3(n,j,:,:) - iconst * perm(n,j)*jsum * LLambda(j) * V2(j,:,:)
+          opMinRight3(n,j,:,:) = opMinRight3(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
+        end do
+
       end do
 
-    end do
-
-    DEALLOCATE(identity)
-
+      DEALLOCATE(identity)
     end subroutine arend_initmult3
 
 
