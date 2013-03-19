@@ -121,6 +121,8 @@ module qme_hierarchy
     private::arend_allocate
     private::arend_deallocate
     private::arend_fill_parameters
+    private::arend_init2
+    private::arend_benchmark_E
 
     private::arend_initmult1
     private::arend_initmult2
@@ -132,106 +134,65 @@ module qme_hierarchy
         character, intent(in) :: type
         integer(i4b) :: i, j
 
+        call print_log_message("fill_evolution_superoperator_hierarchy called",5)
         call arend_main()
+        stop
     end subroutine fill_evolution_superoperator_hierarchy
 
     subroutine arend_main()
+      character(len=128) :: buff
+
       call arend_init()
       call arend_allocate()
       call arend_fill_parameters()
+      call arend_init2()
 
-      ! build index
-      tierstart = 1 ! first element of the current tier
-      currentindex = 2
+      call arend_benchmark_E(1,1)
 
-      currentperm = 0.0
-      perm = 0.0
 
-      do tier = 1, tmax
-        tierstart = tierstart + numpermt(tier-1)
-        do kk1 = currentindex-numpermt(tier-1), currentindex-1 ! loop over all elements in the previous tier
-          do kk2 = 1, Nind ! try to add a ball at position kk2
-              currentperm(:) = perm(kk1, :)
-              currentperm(kk2) = currentperm(kk2) + 1
-              permexists = .False.
-              do nnn = tierstart, currentindex-1 ! check if it is already in the list
-                 if ( ALL(perm(nnn, :) == currentperm) ) then
-                    permexists = .True.
-                    !write(*,*) "permutation ", currentperm, " exists"
-                 end if
-              end do
-              if (permexists .eqv. .False.) then ! if not, add it to the list
-                perm(currentindex, :) = currentperm(:)
-                currentindex = currentindex + 1
-                !write(*,*) "new permutation ", currentperm
-              end if
 
-           end do
-         end do
+
+      call arend_deallocate()
+
+    end subroutine arend_main
+
+    subroutine arend_benchmark_E(i0,j0)
+      integer(i4b), intent(in) :: i0, j0
+
+      character(len=128) :: buff, buff2
+
+      do s=1, Nsys
+      do s2=1, Nsys
+        write(buff, '(I2)') s
+        write(*,*) max(2-len_trim(adjustl(buff)),0), len(trim(adjustl(buff)))
+        buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
+
+        write(buff2, '(I2)') s2
+        write(*,*) max(2-len_trim(adjustl(buff2)),0), len(trim(adjustl(buff2)))
+        buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
+
+        buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
+        write(*,*) buff
+        call flush()
+        open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
       end do
-
-      !do s = 1, size(perm,1)
-      !  do nnn = 1, size(perm,2)
-      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
-      !  end do
-      !  write(*,*)
-      !end do
-      !write(*,*)
-
-      ! cache plus and minus
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-          permplus(nnn, s) = nplus(nnn, s)
-          permmin(nnn, s) = nmin(nnn, s)
-        end do
       end do
-
-      !! debug text to understand the tiers and permutations
-      !do s = 1, size(perm,1)
-      !  do nnn = 1, size(perm,2)
-      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
-      !  end do
-      !
-      !  write(*,'(A)',advance='no') '   '
-      !
-      !  do s2 = 1, size(perm,2)
-      !  if(permplus(s,s2) < 1 .or. permplus(s,s2) > size(perm,1)) then
-      !    cycle
-      !  end if
-      !
-      !  do nnn = 1, size(perm,2)
-      !    write(*,'(I2A)', advance='no') perm(permplus(s,s2),nnn),' '
-      !  end do
-      !  end do !s2
-      !
-      !  write(*,'(A)',advance='no') '   '
-      !
-      !  do s2 = 1, size(perm,2)
-      !  if(permmin(s,s2) < 1 .or. permmin(s,s2) > size(perm,1)) then
-      !    cycle
-      !  end if
-      !
-      !  do nnn = 1, size(perm,2)
-      !    write(*,'(I2A)', advance='no') perm(permmin(s,s2),nnn),' '
-      !  end do
-      !  end do !s2
-      !
-      !  write(*,*)
-      !end do
-      !write(*,*)
-
-      call print_log_message("index complete",5)
-
 
       call arend_initmult1()
       call arend_initmult2()
       call arend_initmult3()
 
+       ! U(t,tau)
 
       ! Initial condition
       do nnn = 1, Nhier
         do s=1, Nsys
-          rho1(nnn, s) = mu(s, dir1)
+                              if(s == i0) then
+                                rho1(nnn, s) = 1.0
+                              else
+                                rho1(nnn, s) = 0.0
+                              end if
+          !rho1(nnn, s) = mu(s, dir1)
         end do
       end do
 
@@ -240,50 +201,33 @@ module qme_hierarchy
         write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
         call flush()
 
-        ! SE and IA
-
         ! initialize t2
         do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+                              if(s == i0 .and. s2 == j0) then
+                                rho2(nnn,s,s2) = 1.0
+                              else
+                                rho2(nnn,s,s2) = 0.0
+                              end if
+              !rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
             end do
           end do
         end do
 
         ! propagate t2
         do nnt2 = 1, Ntimestept2
+          do s=1, Nsys
+          do s2=1, Nsys
+            if(nnt1 == 1) then
+              write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt2-1), real(rho2(1,s,s2)), aimag(rho2(1,s,s2))
+            end if
+          end do
+          end do
           do nin = 1, Ntimestept2in
             call arend_propagate2(dt)
           end do
-          !write(*,*) '     t2 =', nnt2
         end do
-
-        ! SE
-
-        ! initialize t3
-        rho3s = 0.0
-        do nnn = 1, Nhier
-          do s = 1, Nsys
-            do s2 = 1, Nsys
-              rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
-            end do
-          end do
-        end do
-
-        do nnt3 = 1, Ntimestept3
-           ! calculate signal
-           do s = 1, Nsys
-              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
-            end do
-
-           ! propagate t3
-           do nin = 1, Ntimestept3in
-             call arend_propagate3s(dt)
-           end do
-        end do
-
-
 
         ! propagate t1
         do nin = 1, Ntimestept1in
@@ -293,405 +237,10 @@ module qme_hierarchy
       end do ! over nnt
 
 
-
-
-
-
-      stop
-
-
-    ! REPHASING
-
-    if (calculatereph) then
-
-    signalpar(:,:) = 0.0
-    signalper(:,:) = 0.0
-
-    ! loop over polarizations
-    do pol = 1, 1 ! 21
-
-    dir1 = dirinda(pol)
-    dir2 = dirindb(pol)
-    dir3 = dirindc(pol)
-    dir4 = dirindd(pol)
-    orcoeffpar = orcoeffZZZZ(pol)
-
-
-    ! Initial condition
-    do nnn = 1, Nhier
       do s=1, Nsys
-        rho1(nnn, s) = mu(s, dir1)
+        close(s+Nsys*s2+10)
       end do
-    end do
-
-
-    do nnt1 = 1, Ntimestept1
-      write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
-      call flush()
-
-    ! GB
-
-    ! initialize t3
-      do nnn = 1, Nhier
-        mem = 0.0
-        do s = 1, Nsys
-          mem = mem + mu(s, dir2) * rho1(nnn, s)
-        end do
-        do s = 1, Nsys
-          rho3s(nnn, s) = mu(s, dir3) * mem
-        end do
-      end do
-
-     do nnt3 = 1, Ntimestept3
-
-         do s = 1, Nsys
-            signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
-         end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3s(dt)
-         end do
-
-
-     end do
-
-
-
-    ! SE and IA
-
-      ! initialize t2
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-          do s2 = 1, Nsys
-            rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
-          end do
-        end do
-      end do
-
-     ! propagate t2
-     do nnt2 = 1, Ntimestept2
-       do nin = 1, Ntimestept2in
-         call arend_propagate2(dt)
-       end do
-     end do
-
-    ! SE
-
-     ! initialize t3
-      rho3s = 0.0
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-          do s2 = 1, Nsys
-            rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
-          end do
-        end do
-      end do
-
-     do nnt3 = 1, Ntimestept3
-
-         ! calculate signal
-         do s = 1, Nsys
-            signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
-          end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3s(dt)
-         end do
-
-
-     end do
-
-
-
-
-    ! IA
-      ! initialize t3
-      rho3 = 0.0
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-         do w1 = 1, Nsys
-           do w2 = (w1+1), Nsys
-              w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
-              rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w2, dir3) * rho2(nnn, w1, s)
-              rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w1, dir3) * rho2(nnn, w2, s)
-            end do
-          end do
-        end do
-      end do
-
-
-     do nnt3 = 1, Ntimestept3
-
-         ! calculate signal
-         do w1 = 1, Nsys
-           do w2 = (w1+1), Nsys
-              w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
-              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w2, dir4) * rho3(1, w, w1)
-              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w1, dir4) * rho3(1, w, w2)
-            end do
-          end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3(dt)
-         end do
-
-
-     end do
-
-     ! propagate t1
-     do nin = 1, Ntimestept1in
-       call arend_propagate1reph(dt)
-     end do
-
-
-    end do
-
-    end do ! pol
-
-    write(*,*) "rephasing calculation complete"
-
-!    !output
-!    open (55, File='reph.par.re' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='reph.per.re' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='reph.par.im' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='reph.per.im' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-
-
-    end if ! calculatereph
-
-
-
-    ! NON-REPHASING
-
-    if (calculatenonreph) then
-
-    signalpar(:,:) = 0.0
-    signalper(:,:) = 0.0
-
-    ! loop over polarizations
-    do pol = 1,1
-    dir1 = dirinda(pol)
-    dir2 = dirindb(pol)
-    dir3 = dirindc(pol)
-    dir4 = dirindd(pol)
-    orcoeffpar = orcoeffZZZZ(pol)
-
-
-
-    ! Initial condition
-    do nnn = 1, Nhier
-      do s=1, Nsys
-        rho1(nnn, s) = mu(s, dir1)
-      end do
-    end do
-
-
-    do nnt1 = 1, Ntimestept1
-      write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
-
-    ! GB
-
-    ! initialize t3
-      do nnn = 1, Nhier
-        mem = 0.0
-        do s = 1, Nsys
-          mem = mem + mu(s, dir2) * rho1(nnn, s)
-        end do
-        do s = 1, Nsys
-          rho3s(nnn, s) = mu(s, dir3) * mem
-        end do
-      end do
-
-     do nnt3 = 1, Ntimestept3
-
-         do s = 1, Nsys
-            signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
-         end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3s(dt)
-         end do
-
-
-     end do
-
-
-
-    ! SE and IA
-
-      ! initialize t2
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-          do s2 = 1, Nsys
-            rho2(nnn, s, s2) = mu(s2, dir2) * rho1(nnn, s)
-          end do
-        end do
-      end do
-
-     ! propagate t2
-     do nnt2 = 1, Ntimestept2
-       do nin = 1, Ntimestept2in
-         call arend_propagate2(dt)
-       end do
-     end do
-
-    ! SE
-
-     ! initialize t3
-      rho3s = 0.0
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-          do s2 = 1, Nsys
-            rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
-          end do
-        end do
-      end do
-
-     do nnt3 = 1, Ntimestept3
-
-         ! calculate signal
-         do s = 1, Nsys
-            signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
-          end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3s(dt)
-         end do
-
-
-     end do
-
-
-
-
-    ! IA
-      ! initialize t3
-      rho3 = 0.0
-      do nnn = 1, Nhier
-        do s = 1, Nsys
-         do w1 = 1, Nsys
-           do w2 = (w1+1), Nsys
-              w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
-              rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w2, dir3) * rho2(nnn, w1, s)
-              rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w1, dir3) * rho2(nnn, w2, s)
-            end do
-          end do
-        end do
-      end do
-
-
-     do nnt3 = 1, Ntimestept3
-
-         ! calculate signal
-         do w1 = 1, Nsys
-           do w2 = (w1+1), Nsys
-              w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
-              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w2, dir4) * rho3(1, w, w1)
-              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w1, dir4) * rho3(1, w, w2)
-            end do
-          end do
-
-         ! propagate t3
-         do nin = 1, Ntimestept3in
-           call arend_propagate3(dt)
-         end do
-
-
-     end do
-
-     ! propagate t1
-     do nin = 1, Ntimestept1in
-       call arend_propagate1nonreph(dt)
-     end do
-
-
-    end do
-
-    end do ! pol
-
-    write(*,*) "non-rephasing calculation complete"
-
-!    !output
-!    open (55, File='nonreph.par.re' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='nonreph.per.re' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='nonreph.par.im' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-!    open (55, File='nonreph.per.im' )
-!    do nnt1 = 1, Ntimestept1
-!      do nnn = 1, Ntimestept3
-!      write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
-!      end do
-!      write(55,*)
-!    end do
-!    close(55)
-
-
-
-    end if ! calculatenonreph
-
-      call arend_deallocate()
-
-    end subroutine arend_main
+    end subroutine
 
     subroutine arend_init()
       Nsys = N1_from_type('E')
@@ -951,6 +500,483 @@ module qme_hierarchy
       end do
 
     end subroutine arend_fill_parameters
+
+    subroutine arend_init2()
+      character(len=128) :: buff
+
+      ! build index
+      tierstart = 1 ! first element of the current tier
+      currentindex = 2
+
+      currentperm = 0.0
+      perm = 0.0
+
+      do tier = 1, tmax
+        tierstart = tierstart + numpermt(tier-1)
+        do kk1 = currentindex-numpermt(tier-1), currentindex-1 ! loop over all elements in the previous tier
+          do kk2 = 1, Nind ! try to add a ball at position kk2
+              currentperm(:) = perm(kk1, :)
+              currentperm(kk2) = currentperm(kk2) + 1
+              permexists = .False.
+              do nnn = tierstart, currentindex-1 ! check if it is already in the list
+                 if ( ALL(perm(nnn, :) == currentperm) ) then
+                    permexists = .True.
+                    !write(*,*) "permutation ", currentperm, " exists"
+                 end if
+              end do
+              if (permexists .eqv. .False.) then ! if not, add it to the list
+                perm(currentindex, :) = currentperm(:)
+                currentindex = currentindex + 1
+                !write(*,*) "new permutation ", currentperm
+              end if
+
+           end do
+         end do
+      end do
+
+      !do s = 1, size(perm,1)
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
+      !  end do
+      !  write(*,*)
+      !end do
+      !write(*,*)
+
+      ! cache plus and minus
+      do nnn = 1, Nhier
+        do s = 1, Nsys
+          permplus(nnn, s) = nplus(nnn, s)
+          permmin(nnn, s) = nmin(nnn, s)
+        end do
+      end do
+
+      !! debug text to understand the tiers and permutations
+      !do s = 1, size(perm,1)
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(s,nnn),' '
+      !  end do
+      !
+      !  write(*,'(A)',advance='no') '   '
+      !
+      !  do s2 = 1, size(perm,2)
+      !  if(permplus(s,s2) < 1 .or. permplus(s,s2) > size(perm,1)) then
+      !    cycle
+      !  end if
+      !
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(permplus(s,s2),nnn),' '
+      !  end do
+      !  end do !s2
+      !
+      !  write(*,'(A)',advance='no') '   '
+      !
+      !  do s2 = 1, size(perm,2)
+      !  if(permmin(s,s2) < 1 .or. permmin(s,s2) > size(perm,1)) then
+      !    cycle
+      !  end if
+      !
+      !  do nnn = 1, size(perm,2)
+      !    write(*,'(I2A)', advance='no') perm(permmin(s,s2),nnn),' '
+      !  end do
+      !  end do !s2
+      !
+      !  write(*,*)
+      !end do
+      !write(*,*)
+
+      call print_log_message("index complete",5)
+    end subroutine arend_init2
+
+    subroutine arend_2D()
+      ! REPHASING
+
+      if (calculatereph) then
+
+      signalpar(:,:) = 0.0
+      signalper(:,:) = 0.0
+
+      ! loop over polarizations
+      do pol = 1, 1 ! 21
+
+      dir1 = dirinda(pol)
+      dir2 = dirindb(pol)
+      dir3 = dirindc(pol)
+      dir4 = dirindd(pol)
+      orcoeffpar = orcoeffZZZZ(pol)
+
+
+      ! Initial condition
+      do nnn = 1, Nhier
+        do s=1, Nsys
+          rho1(nnn, s) = mu(s, dir1)
+        end do
+      end do
+
+
+      do nnt1 = 1, Ntimestept1
+        write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
+        call flush()
+
+      ! GB
+
+      ! initialize t3
+        do nnn = 1, Nhier
+          mem = 0.0
+          do s = 1, Nsys
+            mem = mem + mu(s, dir2) * rho1(nnn, s)
+          end do
+          do s = 1, Nsys
+            rho3s(nnn, s) = mu(s, dir3) * mem
+          end do
+        end do
+
+       do nnt3 = 1, Ntimestept3
+
+           do s = 1, Nsys
+              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
+           end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3s(dt)
+           end do
+
+
+       end do
+
+
+
+      ! SE and IA
+
+        ! initialize t2
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+            end do
+          end do
+        end do
+
+       ! propagate t2
+       do nnt2 = 1, Ntimestept2
+         do nin = 1, Ntimestept2in
+           call arend_propagate2(dt)
+         end do
+       end do
+
+      ! SE
+
+       ! initialize t3
+        rho3s = 0.0
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
+            end do
+          end do
+        end do
+
+       do nnt3 = 1, Ntimestept3
+
+           ! calculate signal
+           do s = 1, Nsys
+              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
+            end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3s(dt)
+           end do
+
+
+       end do
+
+
+
+
+      ! IA
+        ! initialize t3
+        rho3 = 0.0
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+           do w1 = 1, Nsys
+             do w2 = (w1+1), Nsys
+                w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
+                rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w2, dir3) * rho2(nnn, w1, s)
+                rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w1, dir3) * rho2(nnn, w2, s)
+              end do
+            end do
+          end do
+        end do
+
+
+       do nnt3 = 1, Ntimestept3
+
+           ! calculate signal
+           do w1 = 1, Nsys
+             do w2 = (w1+1), Nsys
+                w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
+                signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w2, dir4) * rho3(1, w, w1)
+                signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w1, dir4) * rho3(1, w, w2)
+              end do
+            end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3(dt)
+           end do
+
+
+       end do
+
+       ! propagate t1
+       do nin = 1, Ntimestept1in
+         call arend_propagate1reph(dt)
+       end do
+
+
+      end do
+
+      end do ! pol
+
+      write(*,*) "rephasing calculation complete"
+
+!      !output
+!      open (55, File='reph.par.re' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='reph.per.re' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='reph.par.im' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='reph.per.im' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+
+
+      end if ! calculatereph
+
+
+
+      ! NON-REPHASING
+
+      if (calculatenonreph) then
+
+      signalpar(:,:) = 0.0
+      signalper(:,:) = 0.0
+
+      ! loop over polarizations
+      do pol = 1,1
+      dir1 = dirinda(pol)
+      dir2 = dirindb(pol)
+      dir3 = dirindc(pol)
+      dir4 = dirindd(pol)
+      orcoeffpar = orcoeffZZZZ(pol)
+
+
+
+      ! Initial condition
+      do nnn = 1, Nhier
+        do s=1, Nsys
+          rho1(nnn, s) = mu(s, dir1)
+        end do
+      end do
+
+
+      do nnt1 = 1, Ntimestept1
+        write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
+
+      ! GB
+
+      ! initialize t3
+        do nnn = 1, Nhier
+          mem = 0.0
+          do s = 1, Nsys
+            mem = mem + mu(s, dir2) * rho1(nnn, s)
+          end do
+          do s = 1, Nsys
+            rho3s(nnn, s) = mu(s, dir3) * mem
+          end do
+        end do
+
+       do nnt3 = 1, Ntimestept3
+
+           do s = 1, Nsys
+              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
+           end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3s(dt)
+           end do
+
+
+       end do
+
+
+
+      ! SE and IA
+
+       ! initialize t2
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho2(nnn, s, s2) = mu(s2, dir2) * rho1(nnn, s)
+            end do
+          end do
+        end do
+
+       ! propagate t2
+       do nnt2 = 1, Ntimestept2
+         do nin = 1, Ntimestept2in
+           call arend_propagate2(dt)
+         end do
+       end do
+
+      ! SE
+
+       ! initialize t3
+        rho3s = 0.0
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho3s(nnn, s) = rho3s(nnn, s) + mu(s2, dir3) * rho2(nnn, s, s2)
+            end do
+          end do
+        end do
+
+       do nnt3 = 1, Ntimestept3
+
+           ! calculate signal
+           do s = 1, Nsys
+              signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) + orcoeffpar * mu(s, dir4) * rho3s(1, s)
+           end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3s(dt)
+           end do
+
+
+       end do
+
+
+
+
+      ! IA
+        ! initialize t3
+        rho3 = 0.0
+        do nnn = 1, Nhier
+          do s = 1, Nsys
+           do w1 = 1, Nsys
+             do w2 = (w1+1), Nsys
+                w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
+                rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w2, dir3) * rho2(nnn, w1, s)
+                rho3(nnn, w, s) = rho3(nnn, w, s) + mu(w1, dir3) * rho2(nnn, w2, s)
+              end do
+            end do
+          end do
+        end do
+
+
+       do nnt3 = 1, Ntimestept3
+
+           ! calculate signal
+           do w1 = 1, Nsys
+             do w2 = (w1+1), Nsys
+                w = (w1-1)*Nsys - (w1*(w1+1))/2 + w2
+                signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w2, dir4) * rho3(1, w, w1)
+                signalpar(nnt1, nnt3) = signalpar(nnt1, nnt3) - orcoeffpar * mu(w1, dir4) * rho3(1, w, w2)
+              end do
+            end do
+
+           ! propagate t3
+           do nin = 1, Ntimestept3in
+             call arend_propagate3(dt)
+           end do
+
+
+       end do
+
+       ! propagate t1
+       do nin = 1, Ntimestept1in
+         call arend_propagate1nonreph(dt)
+       end do
+
+
+      end do
+
+      end do ! pol
+
+      write(*,*) "non-rephasing calculation complete"
+
+!      !output
+!      open (55, File='nonreph.par.re' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), real(signalpar(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='nonreph.per.re' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), real(signalper(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='nonreph.par.im' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), imag(signalpar(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+!      open (55, File='nonreph.per.im' )
+!      do nnt1 = 1, Ntimestept1
+!        do nnn = 1, Ntimestept3
+!        write(55,'(F12.6)', advance='no'), imag(signalper(nnt1, nnn))
+!        end do
+!        write(55,*)
+!      end do
+!      close(55)
+
+
+
+      end if ! calculatenonreph
+    end subroutine arend_2D
 
     function numpermt(tier) ! number of permutations in tier
       integer(i4b), intent(in):: tier
