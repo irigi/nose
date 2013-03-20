@@ -148,6 +148,7 @@ module qme_hierarchy
       call arend_init2()
 
       call arend_benchmark_E(1,1)
+      call arend_benchmark_O(1)
 
 
 
@@ -180,7 +181,80 @@ module qme_hierarchy
 
       call arend_initmult1()
       call arend_initmult2()
-      call arend_initmult3()
+      !call arend_initmult3()
+
+      ! Initial condition
+      do nnn = 1, Nhier
+        do s=1, Nsys
+                              if(s == i0) then
+                                rho1(nnn, s) = 1.0
+                              else
+                                rho1(nnn, s) = 0.0
+                              end if
+          !rho1(nnn, s) = mu(s, dir1)
+        end do
+      end do
+
+
+      do nnt1 = 1, Ntimestept1
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagate1reph(dt)
+        end do
+      end do ! over nnt1
+
+      ! initialize t2
+      do nnn = 1, Nhier
+        do s = 1, Nsys
+          do s2 = 1, Nsys
+                              if(s == i0 .and. s2 == j0) then
+                                rho2(nnn,s,s2) = rho1(nnn, s2)
+                              else
+                                rho2(nnn,s,s2) = 0.0
+                              end if
+            !rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+          end do
+        end do
+      end do
+
+      ! propagate t2
+      do nnt2 = 1, Ntimestept2
+        do s=1, Nsys
+        do s2=1, Nsys
+          write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt2-1), real(rho2(1,s,s2)), aimag(rho2(1,s,s2))
+        end do
+        end do
+        do nin = 1, Ntimestept2in
+          call arend_propagate2(dt)
+        end do
+      end do
+
+      do s=1, Nsys
+      do s2=1, Nsys
+        close(s+Nsys*s2+10)
+      end do
+      end do
+    end subroutine arend_benchmark_E
+
+    subroutine arend_benchmark_O(i0)
+      integer(i4b), intent(in) :: i0
+
+      character(len=128) :: buff
+
+      do s=1, Nsys
+        write(buff, '(I2)') s
+        write(*,*) max(2-len_trim(adjustl(buff)),0), len(trim(adjustl(buff)))
+        buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
+
+        buff = 'rhoO'//trim(buff)//'-G.dat'
+        write(*,*) buff
+        call flush()
+        open(unit=s+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
+      end do
+
+      call arend_initmult1()
+      !call arend_initmult2()
+      !call arend_initmult3()
 
        ! U(t,tau)
 
@@ -201,32 +275,8 @@ module qme_hierarchy
         write(*,'(A6,I2,A12,I5,A3,I5)') "pol = ", pol, " / 21; t1 = ", nnt1, " / " , Ntimestept1
         call flush()
 
-        ! initialize t2
-        do nnn = 1, Nhier
-          do s = 1, Nsys
-            do s2 = 1, Nsys
-                              if(s == i0 .and. s2 == j0) then
-                                rho2(nnn,s,s2) = 1.0
-                              else
-                                rho2(nnn,s,s2) = 0.0
-                              end if
-              !rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
-            end do
-          end do
-        end do
-
-        ! propagate t2
-        do nnt2 = 1, Ntimestept2
-          do s=1, Nsys
-          do s2=1, Nsys
-            if(nnt1 == 1) then
-              write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt2-1), real(rho2(1,s,s2)), aimag(rho2(1,s,s2))
-            end if
-          end do
-          end do
-          do nin = 1, Ntimestept2in
-            call arend_propagate2(dt)
-          end do
+        do s=1, Nsys
+            write(s+10,*) dt*Ntimestept2in*(nnt1-1), real(rho1(1,s)), aimag(rho1(1,s))
         end do
 
         ! propagate t1
@@ -236,11 +286,11 @@ module qme_hierarchy
 
       end do ! over nnt
 
-
       do s=1, Nsys
-        close(s+Nsys*s2+10)
+        close(s+10)
       end do
-    end subroutine
+    end subroutine arend_benchmark_O
+
 
     subroutine arend_init()
       Nsys = N1_from_type('E')
