@@ -48,16 +48,17 @@ module qme_hierarchy
 
 
     integer(i4b), private:: Nsys ! system size
-    integer(i4b), parameter, private:: tmax = 8 ! depth of the hierarchy
+    integer(i4b), parameter, private:: tmax = 15 ! depth of the hierarchy
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
-    integer(i4b), private:: Ntimestept1in = 25 ! number of time steps during t1 in inner loop
+    integer(i4b), private:: Ntimestept1in = 0 ! number of time steps during t1 in inner loop
     integer(i4b), private:: Ntimestept2   = 0 ! number of time steps during t2 in outer loop
-    integer(i4b), private:: Ntimestept2in = 25 ! number of time steps during t2 in inner loop
+    integer(i4b), private:: Ntimestept2in = 0 ! number of time steps during t2 in inner loop
     integer(i4b), private:: Ntimestept3   = 0 ! number of time steps during t3 in outer loop
-    integer(i4b), private:: Ntimestept3in = 25 ! number of time steps during t3 in inner loop
+    integer(i4b), private:: Ntimestept3in = 0 ! number of time steps during t3 in inner loop
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
+    logical, parameter, private:: exciton_basis = .true.
 
     integer:: Nind ! number of indices in hierarchy
     complex(dpc), allocatable, private:: rho1(:,:), prhox1(:,:), prhodx1(:,:)
@@ -147,7 +148,7 @@ module qme_hierarchy
       call arend_fill_parameters()
       call arend_init2()
 
-      call arend_benchmark_E(1,1)
+      call arend_benchmark_E(1,2)
       call arend_benchmark_O(1)
 
 
@@ -161,6 +162,7 @@ module qme_hierarchy
       integer(i4b), intent(in) :: i0, j0
 
       character(len=128) :: buff, buff2
+      complex(dpc), dimension(Nsys, Nsys) :: rhotmp
 
       do s=1, Nsys
       do s2=1, Nsys
@@ -193,37 +195,63 @@ module qme_hierarchy
                               end if
           !rho1(nnn, s) = mu(s, dir1)
         end do
+                              if(exciton_basis) then
+                                call operator_from_exc(rho1(nnn,:),'O')
+                              end if
       end do
 
 
-      do nnt1 = 1, Ntimestept1
+      do nnt1 = 2, Ntimestept1
         ! propagate t1
         do nin = 1, Ntimestept1in
           call arend_propagate1reph(dt)
         end do
       end do ! over nnt1
 
+      write(*,*) rho1(1,:)
+
       ! initialize t2
+      rho2 = 0.0_dp
       do nnn = 1, Nhier
+                              if(exciton_basis) then
+                                call operator_to_exc(rho1(nnn,:),'O')
+                                if(nnn == 1) then
+                                  write(*,*) rho1(1,:)
+                                end if
+                              end if
         do s = 1, Nsys
           do s2 = 1, Nsys
-                              if(s == i0 .and. s2 == j0) then
-                                rho2(nnn,s,s2) = rho1(nnn, s2)
+                              if((s == i0 .and. s2 == j0) .or. (s == j0 .and. s2 == i0)) then
+                                rho2(nnn,s,s2) = rho1(nnn, s)
                               else
                                 rho2(nnn,s,s2) = 0.0
                               end if
             !rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
           end do
         end do
+                              if(exciton_basis) then
+                                call operator_from_exc(rho1(nnn,:),'O')
+                                call operator_from_exc(rho2(nnn,:,:),'E')
+                              end if
       end do
 
       ! propagate t2
       do nnt2 = 1, Ntimestept2
+        rhotmp(:,:) = rho2(1,:,:)
+        if(exciton_basis) then
+          !call operator_to_exc(rho2(1,:,:),'E')
+          call operator_to_exc(rhotmp(:,:),'E')
+        end if
         do s=1, Nsys
         do s2=1, Nsys
-          write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt2-1), real(rho2(1,s,s2)), aimag(rho2(1,s,s2))
+          write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt2-1)/1e15, real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
         end do
         end do
+        !if(exciton_basis) then
+        !  call operator_from_exc(rho2(1,:,:),'E')
+        !end if
+
+
         do nin = 1, Ntimestept2in
           call arend_propagate2(dt)
         end do
@@ -276,7 +304,7 @@ module qme_hierarchy
         call flush()
 
         do s=1, Nsys
-            write(s+10,*) dt*Ntimestept2in*(nnt1-1), real(rho1(1,s)), aimag(rho1(1,s))
+            write(s+10,*) dt*Ntimestept2in*(nnt1-1)/1e15, real(rho1(1,s)), aimag(rho1(1,s))
         end do
 
         ! propagate t1
@@ -1213,7 +1241,6 @@ module qme_hierarchy
         opLeft2(n,:,:) = opLeft2(n,:,:) - musum * identity
 
         do j=1, Nsys
-
           ! first low temperature correction term, see Ishizaki PNAS 2009
           nu1 = 2*pi/beta(j)
           jsum = 2*(lambda(j) / beta(j)) * 2*LLambda(j)/(nu1*nu1 - LLambda(j)*LLambda(j))
@@ -1233,7 +1260,6 @@ module qme_hierarchy
           opMinRight2(n,j,:,:) = opMinRight2(n,j,:,:) + iconst * perm(n,j)*jsum * LLambda(j) * V(j,:,:)
 
         end do
-
       end do
 
       DEALLOCATE(identity)
@@ -1302,42 +1328,49 @@ module qme_hierarchy
 
 
 
-    subroutine arend_Lmult1 (rhoin, result)
-    complex(dpc), intent(in):: rhoin(:,:)
-    complex(dpc):: result(:,:)
-    integer:: n,j, nnp
-    complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+    subroutine arend_Lmult1 (tt, rhoin, result)
+      complex(dpc), intent(in)  :: rhoin(:,:)
+      real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      complex(dpc), intent(out) :: result(:,:)
+      integer:: n,j, nnp
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
+      result(:,:) = 0.0
 
-    result(:,:) = 0.0
+      do n = 1, Nhier
 
+        result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
 
-    do n = 1, Nhier
+        do j=1, Nsys
+          result(n,:) = result(n,:) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),:))
+          result(n,:) = result(n,:) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),:))
+        end do
 
-      result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
-
-      do j=1, Nsys
-        result(n,:) = result(n,:) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),:))
-        result(n,:) = result(n,:) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),:))
       end do
-
-    end do
-
     end subroutine arend_Lmult1
 
     subroutine arend_propagate1reph (dt)
       real(dp), intent(in):: dt
 
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
 
-    !  second order
-    rho1 = conjg(rho1) ! Lmult1 propates the ket, want the bra for rephasing response.
-    call arend_Lmult1(rho1, prhox1)
-    rho1 = rho1 + dt * 0.25 * prhox1
-    prhodx1 = rho1 + 0.66666666666666666667 * dt * prhox1
-    call arend_Lmult1(prhodx1, prhox1) ! prhox1 -> prhodt1 for speed instead of memory
-    !rho1 = rho1 + dt * (0.25*prhox1 + 0.75*prhodt1) for speed instead of memory
-    rho1 = rho1 + dt * 0.75*prhox1
-    rho1 = conjg(rho1)
+
+      !!  second order
+      !rho1 = conjg(rho1) ! Lmult1 propates the ket, want the bra for rephasing response.
+      !call arend_Lmult1(t, rho1, prhox1)
+      !rho1 = rho1 + dt * 0.25 * prhox1
+      !prhodx1 = rho1 + 0.66666666666666666667 * dt * prhox1
+      !call arend_Lmult1(t, prhodx1, prhox1) ! prhox1 -> prhodt1 for speed instead of memory
+      !!rho1 = rho1 + dt * (0.25*prhox1 + 0.75*prhodt1) for speed instead of memory
+      !rho1 = rho1 + dt * 0.75*prhox1
+      !rho1 = conjg(rho1)
+
+      rho1 = conjg(rho1) ! Lmult1 propates the ket, want the bra for rephasing response.
+      call arend_Lmult1(t,rho1,prhodx1)
+      call ode_rk4(rho1,prhodx1,t,dt,prhox1,arend_Lmult1)
+      rho1 = prhox1
+      rho1 = conjg(rho1)
 
 
     ! fourth order
@@ -1356,62 +1389,69 @@ module qme_hierarchy
     subroutine arend_propagate1nonreph (dt)
       real(dp), intent(in):: dt
 
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
 
-    !  second order
+      !!  second order
+      !call arend_Lmult1(t, rho1, prhox1)
+      !rho1 = rho1 + dt * 0.25 * prhox1
+      !prhodx1 = rho1 + 0.66666666666666666667 * dt * prhox1
+      !call arend_Lmult1(t, prhodx1, prhox1)
+      !rho1 = rho1 + dt * 0.75*prhox1
 
-    call arend_Lmult1(rho1, prhox1)
-    rho1 = rho1 + dt * 0.25 * prhox1
-    prhodx1 = rho1 + 0.66666666666666666667 * dt * prhox1
-    call arend_Lmult1(prhodx1, prhox1)
-
-    rho1 = rho1 + dt * 0.75*prhox1
-
+      call arend_Lmult1(t,rho1,prhodx1)
+      call ode_rk4(rho1,prhodx1,t,dt,prhox1,arend_Lmult1)
+      rho1 = prhox1
     end subroutine arend_propagate1nonreph
 
 
-    subroutine arend_Lmult2 (rhoin, result)
-    complex(dpc), intent(in):: rhoin(:,:,:)
-    complex(dpc):: result(:,:,:)
-    integer:: n,j, nnp
-    complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+    subroutine arend_Lmult2 (tt, rhoin, result)
+      complex(dpc), intent(in)  :: rhoin(:,:,:)
+      real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      complex(dpc), intent(out) :: result(:,:,:)
+      integer:: n,j, nnp
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
+      result(:,:,:) = 0.0
 
-    result(:,:,:) = 0.0
+      do n = 1, Nhier
+        result(n,:,:) = result(n,:,:) + MATMUL(opLeft2(n,:,:), rhoin(n,:,:))
+        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight2(n,:,:))
 
+        do j=1, Nsys
+          result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,:,:)), opLRRight2(n,j,:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight2(n,j,:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j),:,:), opMinRight2(n,j,:,:))
+        end do
 
-    do n = 1, Nhier
-
-      result(n,:,:) = result(n,:,:) + MATMUL(opLeft2(n,:,:), rhoin(n,:,:))
-      result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight2(n,:,:))
-
-      do j=1, Nsys
-        result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,:,:)), opLRRight2(n,j,:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight2(n,j,:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j),:,:), opMinRight2(n,j,:,:))
       end do
-
-    end do
-
     end subroutine arend_Lmult2
 
     subroutine arend_propagate2 (dt)
-      real(dp), intent(in):: dt
+      real(dp), intent(in) :: dt
 
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
 
-    !  second order
-    call arend_Lmult2(rho2, prhox2)
-    rho2 = rho2 + dt * 0.25 * prhox2
-    prhodx2 = rho2 + 0.66666666666666666667 * dt * prhox2
-    call arend_Lmult2(prhodx2, prhox2) ! prhox -> prhodt for speed instead of memory
-    rho2 = rho2 + dt * 0.75*prhox2
+    !  !  second order
+    !  call arend_Lmult2(t, rho2, prhox2)
+    !  rho2 = rho2 + dt * 0.25 * prhox2
+    !  prhodx2 = rho2 + 0.66666666666666666667 * dt * prhox2
+    !  call arend_Lmult2(t, prhodx2, prhox2) ! prhox -> prhodt for speed instead of memory
+    !  rho2 = rho2 + dt * 0.75*prhox2
+
+      call arend_Lmult2(t,rho2,prhodx2)
+      call ode_rk4(rho2,prhodx2,t,dt,prhox2,arend_Lmult2)
+      rho2 = prhox2
     end subroutine arend_propagate2
 
 
-    subroutine arend_Lmult3 (rhoin, result)
-    complex(dpc), intent(in):: rhoin(:,:,:)
-    complex(dpc):: result(:,:,:)
+    subroutine arend_Lmult3 (tt, rhoin, result)
+    complex(dpc), intent(in)  :: rhoin(:,:,:)
+    real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+    complex(dpc), intent(out) :: result(:,:,:)
     integer:: n,j, nnp
     complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
@@ -1440,27 +1480,38 @@ module qme_hierarchy
     subroutine arend_propagate3 (dt)
       real(dp), intent(in):: dt
 
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
 
-    !  second order
-    call arend_Lmult3(rho3, prhox3)
-    rho3 = rho3 + dt * 0.25 * prhox3
-    prhodx3 = rho3 + 0.66666666666666666667 * dt * prhox3
-    call arend_Lmult3(prhodx3, prhox3) ! prhox -> prhodt for speed instead of memory
-    rho3 = rho3 + dt * 0.75*prhox3
+      !!  second order
+      !call arend_Lmult3(t, rho3, prhox3)
+      !rho3 = rho3 + dt * 0.25 * prhox3
+      !prhodx3 = rho3 + 0.66666666666666666667 * dt * prhox3
+      !call arend_Lmult3(t, prhodx3, prhox3) ! prhox -> prhodt for speed instead of memory
+      !rho3 = rho3 + dt * 0.75*prhox3
 
+      call arend_Lmult3(t,rho3,prhodx3)
+      call ode_rk4(rho3,prhodx3,t,dt,prhox3,arend_Lmult3)
+      rho3 = prhox3
     end subroutine arend_propagate3
 
 
     subroutine arend_propagate3s (dt)
       real(dp), intent(in):: dt
 
-    !  second order
-    call arend_Lmult1(rho3s, prhox3s)
-    rho3s = rho3s + dt * 0.25 * prhox3s
-    prhodx3s = rho3s + 0.66666666666666666667 * dt * prhox3s
-    call arend_Lmult1(prhodx3s, prhox3s)
-    rho3s = rho3s + dt * 0.75*prhox3s
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
 
+      !!  second order
+      !call arend_Lmult1(t, rho3s, prhox3s)
+      !rho3s = rho3s + dt * 0.25 * prhox3s
+      !prhodx3s = rho3s + 0.66666666666666666667 * dt * prhox3s
+      !call arend_Lmult1(t, prhodx3s, prhox3s)
+      !rho3s = rho3s + dt * 0.75*prhox3s
+
+      call arend_Lmult1(t,rho3s,prhodx3s)
+      call ode_rk4(rho3s,prhodx3s,t,dt,prhox3s,arend_Lmult1)
+      rho3s = prhox3s
     end subroutine arend_propagate3s
 
 

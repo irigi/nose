@@ -42,6 +42,21 @@ module nakajima_zwanzig_shared
 		module procedure superops_from_exc_4indexed
 	end interface
 
+	interface operator_to_exc
+        module procedure operator_to_exc2
+        module procedure operator_to_exc1
+    end interface
+
+    interface operator_from_exc
+        module procedure operator_from_exc2
+        module procedure operator_from_exc1
+    end interface
+
+    private::operator_from_exc2
+    private::operator_from_exc1
+    private::operator_to_exc2
+    private::operator_to_exc1
+
 	real(dp), dimension(:), pointer, private :: eng,en2
 
 	complex(dpc), dimension(:,:), private, allocatable 		:: rhoexpXX, rhoexpxxx
@@ -92,7 +107,7 @@ module nakajima_zwanzig_shared
 
  	end function
 
- 	subroutine operator_to_exc(fromto, type)
+ 	subroutine operator_to_exc2(fromto, type)
 		complex(dpc), dimension(:,:), intent(inout) 				:: fromto
 		character													:: type
 
@@ -114,9 +129,45 @@ module nakajima_zwanzig_shared
  			fromto = matmul(matmul(iblocks(1,1)%eblock%S1_2,fromto),iblocks(1,1)%eblock%SS_2)
  		end if
 
- 	end subroutine operator_to_exc
+ 	end subroutine operator_to_exc2
 
- 	subroutine operator_from_exc(fromto, type)
+ 	subroutine operator_to_exc1(fromto, type)
+        complex(dpc), dimension(:), intent(inout)                   :: fromto
+        character                                                   :: type
+
+        integer(i4b)                                                :: a
+        complex(dpc), dimension(size(fromto),1)                     :: rho
+
+        do a=1, size(fromto)
+            rho(a,1) = fromto(a)
+        end do
+
+        call operator_to_exc2(rho, type)
+
+        do a=1, size(fromto)
+            fromto(a) = rho(a,1)
+        end do
+    end subroutine operator_to_exc1
+
+    subroutine operator_from_exc1(fromto, type)
+        complex(dpc), dimension(:), intent(inout)                   :: fromto
+        character                                                   :: type
+
+        integer(i4b)                                                :: a
+        complex(dpc), dimension(size(fromto),1)                     :: rho
+
+        do a=1, size(fromto)
+            rho(a,1) = fromto(a)
+        end do
+
+        call operator_from_exc2(rho, type)
+
+        do a=1, size(fromto)
+            fromto(a) = rho(a,1)
+        end do
+    end subroutine operator_from_exc1
+
+ 	subroutine operator_from_exc2(fromto, type)
 		complex(dpc), dimension(:,:), intent(inout) 				:: fromto
 		character													:: type
 
@@ -138,7 +189,7 @@ module nakajima_zwanzig_shared
  			fromto = matmul(matmul(iblocks(1,1)%eblock%SS_2,fromto),iblocks(1,1)%eblock%S1_2)
  		end if
 
- 	end subroutine operator_from_exc
+ 	end subroutine operator_from_exc2
 
 	subroutine superops_to_exc_2indexed(fromto, type)
 		complex(dpc), dimension(:,:), intent(inout)		:: fromto
