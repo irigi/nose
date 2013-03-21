@@ -167,15 +167,12 @@ module qme_hierarchy
       do s=1, Nsys
       do s2=1, Nsys
         write(buff, '(I2)') s
-        write(*,*) max(2-len_trim(adjustl(buff)),0), len(trim(adjustl(buff)))
         buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
 
         write(buff2, '(I2)') s2
-        write(*,*) max(2-len_trim(adjustl(buff2)),0), len(trim(adjustl(buff2)))
         buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
 
         buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
-        write(*,*) buff
         call flush()
         open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
       end do
@@ -208,20 +205,15 @@ module qme_hierarchy
         end do
       end do ! over nnt1
 
-      write(*,*) rho1(1,:)
-
       ! initialize t2
       rho2 = 0.0_dp
       do nnn = 1, Nhier
                               if(exciton_basis) then
                                 call operator_to_exc(rho1(nnn,:),'O')
-                                if(nnn == 1) then
-                                  write(*,*) rho1(1,:)
-                                end if
                               end if
         do s = 1, Nsys
           do s2 = 1, Nsys
-                              if((s == i0 .and. s2 == j0) .or. (s == j0 .and. s2 == i0)) then
+                              if(s == i0 .and. s2 == j0) then
                                 rho2(nnn,s,s2) = rho1(nnn, s)
                               else
                                 rho2(nnn,s,s2) = 0.0
@@ -271,20 +263,15 @@ module qme_hierarchy
 
       do s=1, Nsys
         write(buff, '(I2)') s
-        write(*,*) max(2-len_trim(adjustl(buff)),0), len(trim(adjustl(buff)))
         buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
 
         buff = 'rhoO'//trim(buff)//'-G.dat'
-        write(*,*) buff
-        call flush()
         open(unit=s+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
       end do
 
       call arend_initmult1()
       !call arend_initmult2()
       !call arend_initmult3()
-
-       ! U(t,tau)
 
       ! Initial condition
       do nnn = 1, Nhier
@@ -321,6 +308,8 @@ module qme_hierarchy
 
 
     subroutine arend_init()
+      character(len=256) :: buff
+
       Nsys = N1_from_type('E')
       Nind = Nsys
 
@@ -336,7 +325,8 @@ module qme_hierarchy
       Ntimestept3in = gt(3)
 
 
-      write(*,*) 'number of elements in hierarchy = ', Nhier
+      write(buff,*) 'number of elements in hierarchy = ', Nhier
+      call print_log_message(buff,5)
     end subroutine arend_init
 
     subroutine arend_allocate()
@@ -496,20 +486,26 @@ module qme_hierarchy
 
 
     subroutine arend_fill_parameters()
+      character(len=256) :: buff
 
       ! parameters for system-bath coupling
       do s = 1, Nsys
         lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
         LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
         beta(s) = 1/kB_intK/temp
-        Dlong(s) = 0.0_dp
+        Dlong(s) = 1.0_dp
         Dtrans(s) = 0.0_dp
 
-        write(*,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
-        write(*,*) ';LLambda ', LLambda(s)
-        write(*,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
-        write(*,*) ';Dlong   ', Dlong(s)
-        write(*,*) ';Dtrans  ', Dtrans(s)
+        write(buff,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
+        call print_log_message(buff,5)
+        write(buff,*) ';LLambda ', LLambda(s)
+        call print_log_message(buff,5)
+        write(buff,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
+        call print_log_message(buff,5)
+        write(buff,*) ';Dlong   ', Dlong(s)
+        call print_log_message(buff,5)
+        write(buff,*) ';Dtrans  ', Dtrans(s)
+        call print_log_message(buff,5)
       end do
 
 
@@ -817,7 +813,7 @@ module qme_hierarchy
 
       end do ! pol
 
-      write(*,*) "rephasing calculation complete"
+      call print_log_message("rephasing calculation complete",5)
 
 !      !output
 !      open (55, File='reph.par.re' )
@@ -1012,7 +1008,7 @@ module qme_hierarchy
 
       end do ! pol
 
-      write(*,*) "non-rephasing calculation complete"
+      call print_log_message("non-rephasing calculation complete",5)
 
 !      !output
 !      open (55, File='nonreph.par.re' )
