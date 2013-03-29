@@ -129,7 +129,21 @@ module qme_hierarchy
     private::arend_initmult2
     private::arend_initmult3
 
+    private::light_CF
+    private::arend_mancal_valkunas_quantum_light
+
  	contains
+
+ 	real(dp) function light_CF(t1,t2) result(res)
+ 	    real(dp), intent(in)    :: t1, t2
+ 	    integer(i4b), parameter :: gamma = 1/100.0
+
+        if(t1 > t2 .and. t1 > 0) then
+ 	        res = exp(-abs(t1 - t2)*gamma)
+ 	    else
+ 	        res = 0.0_dp
+ 	    end if
+ 	end function light_CF
 
     subroutine fill_evolution_superoperator_hierarchy(type)
         character, intent(in) :: type
@@ -148,15 +162,161 @@ module qme_hierarchy
       call arend_fill_parameters()
       call arend_init2()
 
-      call arend_benchmark_E(1,2)
-      call arend_benchmark_O(1)
+      !call arend_benchmark_E(1,2)
+      !call arend_benchmark_O(1)
 
+      call arend_mancal_valkunas_quantum_light()
 
 
 
       call arend_deallocate()
 
     end subroutine arend_main
+
+    subroutine arend_mancal_valkunas_quantum_light()
+      character(len=128) :: buff, buff2
+      complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
+      complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
+      integer(i4b) :: nnt
+
+      do s=1, Nsys
+      do s2=1, Nsys
+        write(buff, '(I2)') s
+        buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
+
+        write(buff2, '(I2)') s2
+        buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
+
+        buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
+        call flush()
+        open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
+      end do
+      end do
+
+      call arend_initmult1()
+      call arend_initmult2()
+      rho_physical = 0.0_dp
+
+      ! XXXXXXXXXXXXXXXx
+        dir1 = 1
+        dir2 = 1
+        dir3 = 1
+        dir4 = 1
+      ! XXXXXXXXXXXXXXXx
+
+      write(*,*) 'mu_x =',mu(:,1)
+      write(*,*) 'mu_y =',mu(:,2)
+      write(*,*) 'mu_z =',mu(:,3)
+
+      ! Initial condition
+      do nnn = 1, 1!Nhier
+        do s=1, Nsys
+          rho1(nnn, s) = mu(s, dir1)
+        end do
+      end do
+
+      do nnt1 = 1, Ntimestept1
+        ! initialize t2
+        rho2 = 0.0_dp
+        do nnn = 1, 1!Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+            end do
+          end do
+        end do
+
+        write(*,*) '   nnt1 = ', nnt1
+        call flush()
+
+        !if(nnt1 /= 19) then
+        !    do nin = 1, Ntimestept1in
+        !        call arend_propagate1reph(dt)
+        !    end do
+        !    cycle
+        !end if
+
+        ! propagate t2
+        do nnt2 = 1, Ntimestept2-nnt1
+          do s = 1, Nsys
+          do s2 = 1, Nsys
+          do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+          end do
+          end do
+          end do
+
+          !! XXXXXXXXXX
+          !rho_physical(:,:,nnt2) = rho2(1,:,:)
+
+          !if(real(rho2(1,1,1)) < 0) then
+          !  write(*,*) nnt1, nnt2, rho2(1,1,1), abs(rho1(1, :))
+          !end if
+
+          do nin = 1, Ntimestept2in
+            call arend_propagate2(dt)
+          end do
+        end do
+
+
+                  do s=1, Nsys
+                  do s2=1, Nsys
+                    write(buff, '(I2)') s
+                    buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
+
+                    write(buff2, '(I2)') s2
+                    buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
+
+                    buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
+                    call flush()
+                    open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
+                  end do
+                  end do
+
+                  ! print outcome
+                  do nnt=1,Ntimestept2
+                      rhotmp(:,:) = rho_physical(:,:,nnt)
+                      if(exciton_basis) then
+                        call operator_to_exc(rhotmp(:,:),'E')
+                      end if
+                      do s=1, Nsys
+                      do s2=1, Nsys
+                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                      end do
+                      end do
+                  end do
+
+                  do s=1, Nsys
+                  do s2=1, Nsys
+                    close(s+Nsys*s2+10)
+                  end do
+                  end do
+
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagate1reph(dt)
+        end do
+      end do ! over nnt1
+
+      ! print outcome
+      do nnt=1,Ntimestept2
+          rhotmp(:,:) = rho_physical(:,:,nnt)
+          if(exciton_basis) then
+            call operator_to_exc(rhotmp(:,:),'E')
+          end if
+          do s=1, Nsys
+          do s2=1, Nsys
+            write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+          end do
+          end do
+      end do
+
+      do s=1, Nsys
+      do s2=1, Nsys
+        close(s+Nsys*s2+10)
+      end do
+      end do
+    end subroutine arend_mancal_valkunas_quantum_light
 
     subroutine arend_benchmark_E(i0,j0)
       integer(i4b), intent(in) :: i0, j0
@@ -497,15 +657,15 @@ module qme_hierarchy
         Dtrans(s) = 0.0_dp
 
         write(buff,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
-        call print_log_message(buff,5)
+        call print_log_message(adjustl(trim(buff)),5)
         write(buff,*) ';LLambda ', LLambda(s)
-        call print_log_message(buff,5)
+        call print_log_message(adjustl(trim(buff)),5)
         write(buff,*) ';beta    ', 1/beta(s)*Energy_internal_to_cm/0.69503568_dp
-        call print_log_message(buff,5)
+        call print_log_message(adjustl(trim(buff)),5)
         write(buff,*) ';Dlong   ', Dlong(s)
-        call print_log_message(buff,5)
+        call print_log_message(adjustl(trim(buff)),5)
         write(buff,*) ';Dtrans  ', Dtrans(s)
-        call print_log_message(buff,5)
+        call print_log_message(adjustl(trim(buff)),5)
       end do
 
 
