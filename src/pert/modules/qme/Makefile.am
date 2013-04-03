@@ -21,6 +21,7 @@ resources_qme.mod: ../../libresources.a
 qme_nakajima_zwanzig.mod: ../../libprepare.a
 qme_hierarchy.mod: ../../libprepare.a
 qme_weak_excitons.mod: ../../libprepare.a
+qme_hierarchy.mod: ../../libprepare.a ../../libresources.a
 module_qme.mod: ../../libprepare.a
  
 	

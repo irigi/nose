@@ -24,8 +24,8 @@ module module_qme
 	implicit none
 
 	logical  :: have_populations, have_coherences, have_polar_1, have_pop_coh, &
-
 				 have_2d_ftpe, have_1to2ex_coh, qme_polar_1_collected
+
 	integer(i4b)  :: NFFT, padfac
 	integer, parameter :: NFFT_basic = 1024
 	real(dp), private :: dom, rmx

@@ -223,7 +223,7 @@ contains
         call print_log_message(trim(cbuff),5)
 
 
-
+        ! extendedGridExtent
 		if (nis_has_next()) then
             call nis_next(err)
             call print_error_message(err,"input_qme")
@@ -399,7 +399,25 @@ contains
             read_external_evops = .false.
             use_module_nakajima_zwanzig = .false.
             use_module_hierarchy = .true.
-            submethod1 = '-'
+            submethod1 = 'E'
+            submethod2 = '-'
+
+        else if (index(trim(method), "hierarchy-delta") == 1) then
+
+            use_twoexcitons = .true.
+            read_external_evops = .false.
+            use_module_nakajima_zwanzig = .false.
+            use_module_hierarchy = .true.
+            submethod1 = 'D'
+            submethod2 = '-'
+
+        else if (index(trim(method), "hierarchy") == 1) then
+
+            use_twoexcitons = .true.
+            read_external_evops = .false.
+            use_module_nakajima_zwanzig = .false.
+            use_module_hierarchy = .true.
+            submethod1 = 'H'
             submethod2 = '-'
 
         else if (trim(method) == "PT2-RC") then

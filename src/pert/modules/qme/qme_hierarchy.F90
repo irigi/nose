@@ -25,6 +25,7 @@ module qme_hierarchy
 
 	use prepare
 	use twod
+	use resources
 
 	use resources_qme
 	use std_types
@@ -48,7 +49,7 @@ module qme_hierarchy
 
 
     integer(i4b), private:: Nsys ! system size
-    integer(i4b), parameter, private:: tmax = 15 ! depth of the hierarchy
+    integer(i4b), parameter, private:: tmax = 6 ! depth of the hierarchy
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
     integer(i4b), private:: Ntimestept1in = 0 ! number of time steps during t1 in inner loop
     integer(i4b), private:: Ntimestept2   = 0 ! number of time steps during t2 in outer loop
@@ -65,10 +66,13 @@ module qme_hierarchy
     complex(dpc), allocatable, private:: rho2(:,:,:), prhox2(:,:,:), prhodx2(:,:,:)
     complex(dpc), allocatable, private:: rho3s(:,:), prhox3s(:,:), prhodx3s(:,:)
     complex(dpc), allocatable, private:: rho3(:,:,:), prhox3(:,:,:), prhodx3(:,:,:)
+    complex(dpc), allocatable, private:: rhoC(:,:,:), prhoxC(:,:,:), prhodxC(:,:,:)
     complex(dpc), allocatable, private:: HS(:,:), HS2(:,:)
     complex(dpc), allocatable, private:: V(:, :,:), V2(:,:,:), mu(:,:)
     complex(dpc), allocatable, private:: opLeft2(:,:,:), opRight2(:,:,:), opLRLeft2(:,:,:,:), opLRRight2(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft2(:,:,:,:), opPlusRight2(:,:,:,:), opMinLeft2(:,:,:,:), opMinRight2(:,:,:,:)
+    !complex(dpc), allocatable, private:: opLeftC(:,:,:), opRightC(:,:,:), opLRLeftC(:,:,:,:), opLRRightC(:,:,:,:)
+    !complex(dpc), allocatable, private:: opPlusLeftC(:,:,:,:), opPlusRightC(:,:,:,:), opMinLeftC(:,:,:,:), opMinRightC(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft3(:,:,:), opRight3(:,:,:), opLRLeft3(:,:,:,:), opLRRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft3(:,:,:,:), opPlusRight3(:,:,:,:), opMinLeft3(:,:,:,:), opMinRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft1(:,:,:), opPlusLeft1(:,:,:,:), opMinLeft1(:,:,:,:)
@@ -129,14 +133,25 @@ module qme_hierarchy
     private::arend_initmult2
     private::arend_initmult3
 
+    private::arend_propagate1reph
+    private::arend_propagate1nonreph
+    private::arend_propagate2
+    private::arend_propagate3
+    private::arend_propagateC
+
     private::light_CF
+    private::close_files
+    private::open_files
     private::arend_mancal_valkunas_quantum_light
+    private::arend_mancal_valkunas_quantum_light2
 
  	contains
 
  	real(dp) function light_CF(t1,t2) result(res)
  	    real(dp), intent(in)    :: t1, t2
- 	    integer(i4b), parameter :: gamma = 1/100.0
+ 	    real(dp) :: gamma
+
+ 	    gamma = 1/tau_of_projector
 
         if(t1 > t2 .and. t1 > 0) then
  	        res = exp(-abs(t1 - t2)*gamma)
@@ -150,7 +165,10 @@ module qme_hierarchy
         integer(i4b) :: i, j
 
         call print_log_message("fill_evolution_superoperator_hierarchy called",5)
-        call arend_main()
+        if(submethod1 == 'E') then
+        else
+            call arend_main()
+        end if
         stop
     end subroutine fill_evolution_superoperator_hierarchy
 
@@ -165,7 +183,10 @@ module qme_hierarchy
       !call arend_benchmark_E(1,2)
       !call arend_benchmark_O(1)
 
-      call arend_mancal_valkunas_quantum_light()
+      write(buff,*) 'Submethod used:',submethod1
+      call print_log_message(adjustl(trim(buff)), 5)
+
+      call arend_mancal_valkunas_quantum_light2(submethod1)
 
 
 
@@ -173,25 +194,116 @@ module qme_hierarchy
 
     end subroutine arend_main
 
-    subroutine arend_mancal_valkunas_quantum_light()
-      character(len=128) :: buff, buff2
+    subroutine arend_mancal_valkunas_quantum_light2(type)
+      character, intent(in)  :: type
+      character(len=128)     :: buff, buff2
+      complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
+      complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
+      complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
+      integer(i4b) :: nnt
+
+      call arend_initmult1()
+      call arend_initmult2()
+      rho_physical = 0.0_dp
+
+      ! XXXXXXXXXXXXXXXx
+        dir1 = 1
+        dir2 = 1
+        dir3 = 1
+        dir4 = 1
+      ! XXXXXXXXXXXXXXXx
+
+      write(*,*) 'mu_x =',mu(:,1)
+      write(*,*) 'mu_y =',mu(:,2)
+      write(*,*) 'mu_z =',mu(:,3)
+
+      rhoC = 0.0_dp
+
+      ! Initial condition
+      do nnn = 1, 1!Nhier
+        do s=1, Nsys
+          rhoC(nnn, s, 0) = mu(s, dir1)
+        end do
+      end do
+
+      do nnt1 = 1, Ntimestept1
+        ! initialize t2
+        do nnn = 1, 1!Nhier
+          do s = 1, Nsys
+            do s2 = 1, Nsys
+              rhoC(nnn, s, s2) = mu(s, dir2) * rhoC(nnn, s2, 0)
+            end do
+          end do
+        end do
+
+        write(*,*) '   nnt1 = ', nnt1
+        call flush()
+
+        ! store the time evolution
+        rhotmp2 = rhoC
+
+        ! propagate t2
+        do nnt2 = 1, Ntimestept2-nnt1
+          do s = 1, Nsys
+          do s2 = 1, Nsys
+
+          if(submethod1 == 'D') then
+            nnt = nnt1+nnt2-1
+            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+          else
+            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+            end do
+          end if
+
+          end do
+          end do
+
+
+          do nin = 1, Ntimestept2in
+            call arend_propagateC(dt)
+          end do
+        end do
+
+                  if(mod(nnt1,10) == 0) then
+                  call open_files()
+
+                  ! print outcome
+                  do nnt=1,Ntimestept2
+                      rhotmp(:,:) = rho_physical(:,:,nnt)
+                      if(exciton_basis) then
+                        call operator_to_exc(rhotmp(1:,1:),'E')
+                        !call operator_to_exc(rhotmp(0,1:),'O')
+                        !call operator_to_exc(rhotmp(1:,0),'O')
+                      end if
+                      do s=1, Nsys
+                      do s2=1, Nsys
+                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                      end do
+                      end do
+                  end do
+
+                  call close_files()
+                  end if
+
+        ! restore the time evolution
+        rhoC = rhotmp2
+
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagateC(dt)
+        end do
+      end do ! over nnt1
+
+    end subroutine arend_mancal_valkunas_quantum_light2
+
+
+    subroutine arend_mancal_valkunas_quantum_light(type)
+      character, intent(in)  :: type
+      character(len=128)     :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
       integer(i4b) :: nnt
-
-      do s=1, Nsys
-      do s2=1, Nsys
-        write(buff, '(I2)') s
-        buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
-
-        write(buff2, '(I2)') s2
-        buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
-
-        buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
-        call flush()
-        open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
-      end do
-      end do
 
       call arend_initmult1()
       call arend_initmult2()
@@ -240,9 +352,16 @@ module qme_hierarchy
         do nnt2 = 1, Ntimestept2-nnt1
           do s = 1, Nsys
           do s2 = 1, Nsys
-          do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+
+          if(submethod1 == 'D') then
+            nnt = nnt1+nnt2-1
             rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
-          end do
+          else
+            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+            end do
+          end if
+
           end do
           end do
 
@@ -258,20 +377,8 @@ module qme_hierarchy
           end do
         end do
 
-
-                  do s=1, Nsys
-                  do s2=1, Nsys
-                    write(buff, '(I2)') s
-                    buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
-
-                    write(buff2, '(I2)') s2
-                    buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
-
-                    buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
-                    call flush()
-                    open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
-                  end do
-                  end do
+                  if(mod(nnt1,10) == 0) then
+                  call open_files()
 
                   ! print outcome
                   do nnt=1,Ntimestept2
@@ -286,11 +393,8 @@ module qme_hierarchy
                       end do
                   end do
 
-                  do s=1, Nsys
-                  do s2=1, Nsys
-                    close(s+Nsys*s2+10)
-                  end do
-                  end do
+                  call close_files()
+                  end if
 
         ! propagate t1
         do nin = 1, Ntimestept1in
@@ -298,24 +402,6 @@ module qme_hierarchy
         end do
       end do ! over nnt1
 
-      ! print outcome
-      do nnt=1,Ntimestept2
-          rhotmp(:,:) = rho_physical(:,:,nnt)
-          if(exciton_basis) then
-            call operator_to_exc(rhotmp(:,:),'E')
-          end if
-          do s=1, Nsys
-          do s2=1, Nsys
-            write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
-          end do
-          end do
-      end do
-
-      do s=1, Nsys
-      do s2=1, Nsys
-        close(s+Nsys*s2+10)
-      end do
-      end do
     end subroutine arend_mancal_valkunas_quantum_light
 
     subroutine arend_benchmark_E(i0,j0)
@@ -467,6 +553,32 @@ module qme_hierarchy
     end subroutine arend_benchmark_O
 
 
+    subroutine open_files()
+      character(len=128)     :: buff, buff2
+
+      do s=1, Nsys
+      do s2=1, Nsys
+        write(buff, '(I2)') s
+        buff = repeat( '0', max(2-len_trim(adjustl(buff)), 0)  ) // adjustl(buff)
+
+        write(buff2, '(I2)') s2
+        buff2 = repeat( '0', max(2-len_trim(adjustl(buff2)), 0)  ) // adjustl(buff2)
+
+        buff = 'rhoE'//trim(buff)//'-'//trim(buff2)//'.dat'
+        call flush()
+        open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
+      end do
+      end do
+    end subroutine open_files
+
+    subroutine close_files()
+      do s=1, Nsys
+      do s2=1, Nsys
+        close(s+Nsys*s2+10)
+      end do
+      end do
+    end subroutine close_files
+
     subroutine arend_init()
       character(len=256) :: buff
 
@@ -503,6 +615,13 @@ module qme_hierarchy
       rho2 = 0.0
       prhodx2 = 0.0
       prhox2 = 0.0
+
+      ALLOCATE(rhoC,(Nhier+1, 0:Nsys, 0:Nsys))     ! +1: store zeros in the last density matrix
+      ALLOCATE(prhodxC,(Nhier+1, 0:Nsys, 0:Nsys))  ! 0: -- include ground state at zero index
+      ALLOCATE(prhoxC,(Nhier+1, 0:Nsys, 0:Nsys))
+      rhoC = 0.0
+      prhodxC = 0.0
+      prhoxC = 0.0
 
       ALLOCATE(rho3,(Nhier+1, (Nsys*(Nsys-1))/2, Nsys)) ! +1: store zeros in the last density matrix
       ALLOCATE(prhodx3,(Nhier+1, (Nsys*(Nsys-1))/2, Nsys))
@@ -584,6 +703,10 @@ module qme_hierarchy
       DEALLOCATE(rho2)
       DEALLOCATE(prhodx2)
       DEALLOCATE(prhox2)
+
+      DEALLOCATE(rhoC)
+      DEALLOCATE(prhodxC)
+      DEALLOCATE(prhoxC)
 
       DEALLOCATE(rho3)
       DEALLOCATE(prhodx3)
@@ -1603,6 +1726,57 @@ module qme_hierarchy
       rho2 = prhox2
     end subroutine arend_propagate2
 
+    subroutine arend_LmultC (tt, rhoin, result)
+      complex(dpc), intent(in)  :: rhoin(:,0:,0:)
+      real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      complex(dpc), intent(out) :: result(:,0:,0:)
+      integer:: n,j, nnp
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+
+      result(:,:,:) = 0.0
+
+      ! Lmult1 part
+      do n = 1, Nhier
+        result(n,:,0) = result(n,:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
+
+        do j=1, Nsys
+          result(n,:,0) = result(n,:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),1:,0))
+          result(n,:,0) = result(n,:,0) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),1:,0))
+        end do
+
+!!        ! conjugate part of Lmult1
+!!        do j=1, Nsys
+!!          result(n,0,j) = conjg(result(n,j,0))
+!!        end do
+      end do
+
+      ! Lmult2 part
+      do n = 1, Nhier
+        result(n,1:,1:) = result(n,1:,1:) + MATMUL(opLeft2(n,:,:), rhoin(n,1:,1:))
+        result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(n,1:,1:), opRight2(n,:,:))
+
+        do j=1, Nsys
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,1:,1:)), opLRRight2(n,j,:,:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),1:,1:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permplus(n,j),1:,1:), opPlusRight2(n,j,:,:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),1:,1:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permmin(n,j),1:,1:), opMinRight2(n,j,:,:))
+        end do
+      end do
+
+      ! channel to the ground state here?
+    end subroutine arend_LmultC
+
+    subroutine arend_propagateC (dt)
+      real(dp), intent(in) :: dt
+
+      real(dp) :: t
+      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+
+      call arend_LmultC(t,rhoC,prhodxC)
+      call ode_rk4(rhoC,prhodxC,t,dt,prhoxC,arend_LmultC)
+      rhoC = prhoxC
+    end subroutine arend_propagateC
 
     subroutine arend_Lmult3 (tt, rhoin, result)
     complex(dpc), intent(in)  :: rhoin(:,:,:)
