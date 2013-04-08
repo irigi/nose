@@ -227,6 +227,10 @@ module qme_hierarchy
       end do
 
       do nnt1 = 1, Ntimestept1
+        if(submethod1 == 'I' .and. nnt1 > 1) then
+            exit
+        end if
+
         ! initialize t2
         do nnn = 1, Nhier
           do s = 1, Nsys
@@ -248,10 +252,6 @@ module qme_hierarchy
         do nnt2 = 1, Ntimestept2-nnt1
           do s = 1, Nsys
           do s2 = 1, Nsys
-
-          if(submethod1 == 'I' .and. nnt2 > 1) then
-            exit
-          end if
 
           if(submethod1 == 'D') then
             nnt = nnt1+nnt2-1
@@ -334,6 +334,10 @@ module qme_hierarchy
       end do
 
       do nnt1 = 1, Ntimestept1
+        if(submethod1 == 'I' .and. nnt1 > 1) then
+          exit
+        end if
+
         ! initialize t2
         rho2 = 0.0_dp
         do nnn = 1, Nhier
@@ -360,10 +364,6 @@ module qme_hierarchy
         do nnt2 = 1, Ntimestept2-nnt1
           do s = 1, Nsys
           do s2 = 1, Nsys
-
-          if(submethod1 == 'I' .and. nnt2 > 1) then
-            exit
-          end if
 
           if(submethod1 == 'D') then
             nnt = nnt1+nnt2-1
