@@ -186,7 +186,7 @@ module qme_hierarchy
       write(buff,*) 'Submethod used:',submethod1
       call print_log_message(adjustl(trim(buff)), 5)
 
-      call arend_mancal_valkunas_quantum_light2(submethod1)
+      call arend_mancal_valkunas_quantum_light(submethod1)
 
 
 
@@ -220,7 +220,7 @@ module qme_hierarchy
       rhoC = 0.0_dp
 
       ! Initial condition
-      do nnn = 1, 1!Nhier
+      do nnn = 1, Nhier
         do s=1, Nsys
           rhoC(nnn, s, 0) = mu(s, dir1)
         end do
@@ -228,7 +228,7 @@ module qme_hierarchy
 
       do nnt1 = 1, Ntimestept1
         ! initialize t2
-        do nnn = 1, 1!Nhier
+        do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
               rhoC(nnn, s, s2) = mu(s, dir2) * rhoC(nnn, s2, 0)
@@ -239,6 +239,8 @@ module qme_hierarchy
         write(*,*) '   nnt1 = ', nnt1
         call flush()
 
+        write(*,*) rhoC(1, 1:, 0)
+
         ! store the time evolution
         rhotmp2 = rhoC
 
@@ -246,6 +248,10 @@ module qme_hierarchy
         do nnt2 = 1, Ntimestept2-nnt1
           do s = 1, Nsys
           do s2 = 1, Nsys
+
+          if(submethod1 == 'I' .and. nnt2 > 1) then
+            exit
+          end if
 
           if(submethod1 == 'D') then
             nnt = nnt1+nnt2-1
@@ -321,7 +327,7 @@ module qme_hierarchy
       write(*,*) 'mu_z =',mu(:,3)
 
       ! Initial condition
-      do nnn = 1, 1!Nhier
+      do nnn = 1, Nhier
         do s=1, Nsys
           rho1(nnn, s) = mu(s, dir1)
         end do
@@ -330,7 +336,7 @@ module qme_hierarchy
       do nnt1 = 1, Ntimestept1
         ! initialize t2
         rho2 = 0.0_dp
-        do nnn = 1, 1!Nhier
+        do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
               rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
@@ -340,6 +346,8 @@ module qme_hierarchy
 
         write(*,*) '   nnt1 = ', nnt1
         call flush()
+
+        write(*,*) rho1(1, :)
 
         !if(nnt1 /= 19) then
         !    do nin = 1, Ntimestept1in
@@ -352,6 +360,10 @@ module qme_hierarchy
         do nnt2 = 1, Ntimestept2-nnt1
           do s = 1, Nsys
           do s2 = 1, Nsys
+
+          if(submethod1 == 'I' .and. nnt2 > 1) then
+            exit
+          end if
 
           if(submethod1 == 'D') then
             nnt = nnt1+nnt2-1
@@ -1737,11 +1749,11 @@ module qme_hierarchy
 
       ! Lmult1 part
       do n = 1, Nhier
-        result(n,:,0) = result(n,:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
+        result(n,1:,0) = result(n,1:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
 
         do j=1, Nsys
-          result(n,:,0) = result(n,:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),1:,0))
-          result(n,:,0) = result(n,:,0) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),1:,0))
+          result(n,1:,0) = result(n,1:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),1:,0))
+          result(n,1:,0) = result(n,1:,0) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),1:,0))
         end do
 
 !!        ! conjugate part of Lmult1
