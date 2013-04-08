@@ -153,7 +153,7 @@ module qme_hierarchy
 
  	    gamma = 1/tau_of_projector
 
-        if(t1 > t2 .and. t1 > 0) then
+        if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
  	    else
  	        res = 0.0_dp
@@ -201,6 +201,7 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       integer(i4b) :: nnt
+      real(dp)     :: LOCAL_RWA
 
       call arend_initmult1()
       call arend_initmult2()
@@ -271,7 +272,7 @@ module qme_hierarchy
           end do
         end do
 
-                  if(mod(nnt1,10) == 0) then
+                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
                   call open_files()
 
                   ! print outcome
@@ -389,7 +390,7 @@ module qme_hierarchy
           end do
         end do
 
-                  if(mod(nnt1,10) == 0) then
+                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
                   call open_files()
 
                   ! print outcome
