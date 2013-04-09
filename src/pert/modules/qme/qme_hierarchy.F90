@@ -279,7 +279,7 @@ module qme_hierarchy
 
                   ! print outcome
                   do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt)
+                      rhotmp(:,:) = rho_physical(:,:,nnt) + transpose(conjg(rho_physical(:,:,nnt)))
                       if(exciton_basis) then
                         call operator_to_exc(rhotmp(1:,1:),'E')
                         !call operator_to_exc(rhotmp(0,1:),'O')
@@ -291,8 +291,8 @@ module qme_hierarchy
                       end do
                       end do
 
-                      if(maxval(abs(rhotmp + conjg(transpose(rhotmp)) )) > 1e-6 ) then
-                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      if(maxval(abs(rhotmp)) > 1e-6 ) then
+                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp) )
                       end if
                   end do
 
@@ -317,7 +317,7 @@ module qme_hierarchy
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
       integer(i4b) :: nnt, rwn
-      integer(i4b), parameter :: rwpts = 100, rwrng = 300
+      integer(i4b), parameter :: rwpts = 500, rwrng = 500
 
       call arend_initmult1()
       call arend_initmult2()
@@ -398,7 +398,7 @@ module qme_hierarchy
 
                   ! print outcome
                   do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt)
+                      rhotmp(:,:) = rho_physical(:,:,nnt) + transpose(conjg(rho_physical(:,:,nnt)))
                       if(exciton_basis) then
                         call operator_to_exc(rhotmp(:,:),'E')
                       end if
@@ -408,8 +408,8 @@ module qme_hierarchy
                       end do
                       end do
 
-                      if(maxval(abs(rhotmp + conjg(transpose(rhotmp)) )) > 1e-6 ) then
-                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      if(maxval(abs(rhotmp)) > 1e-6 ) then
+                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp))
                       end if
                   end do
 
