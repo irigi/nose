@@ -71,8 +71,6 @@ module qme_hierarchy
     complex(dpc), allocatable, private:: V(:, :,:), V2(:,:,:), mu(:,:)
     complex(dpc), allocatable, private:: opLeft2(:,:,:), opRight2(:,:,:), opLRLeft2(:,:,:,:), opLRRight2(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft2(:,:,:,:), opPlusRight2(:,:,:,:), opMinLeft2(:,:,:,:), opMinRight2(:,:,:,:)
-    !complex(dpc), allocatable, private:: opLeftC(:,:,:), opRightC(:,:,:), opLRLeftC(:,:,:,:), opLRRightC(:,:,:,:)
-    !complex(dpc), allocatable, private:: opPlusLeftC(:,:,:,:), opPlusRightC(:,:,:,:), opMinLeftC(:,:,:,:), opMinRightC(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft3(:,:,:), opRight3(:,:,:), opLRLeft3(:,:,:,:), opLRRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft3(:,:,:,:), opPlusRight3(:,:,:,:), opMinLeft3(:,:,:,:), opMinRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft1(:,:,:), opPlusLeft1(:,:,:,:), opMinLeft1(:,:,:,:)
@@ -92,6 +90,9 @@ module qme_hierarchy
     integer(i4b), private:: dir1, dir2, dir3, dir4, pol
     logical, private:: permexists
     integer(i4b), allocatable, private:: currentperm(:)
+
+    !additional rwa, we integrate over it to ensure rwa-independence
+    real(dp)     :: local_rwa = 0.0_dp
 
     ! polarization components
     ! during t1, we need delta = x (1), y (2) and z (3)
@@ -186,7 +187,7 @@ module qme_hierarchy
       write(buff,*) 'Submethod used:',submethod1
       call print_log_message(adjustl(trim(buff)), 5)
 
-      call arend_mancal_valkunas_quantum_light(submethod1)
+      call arend_mancal_valkunas_quantum_light2(submethod1)
 
 
 
@@ -200,8 +201,8 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
-      integer(i4b) :: nnt
-      real(dp)     :: LOCAL_RWA
+      integer(i4b) :: nnt, rwn
+      real(dp)     :: absmaxcoh0 = 0.0_dp
 
       call arend_initmult1()
       call arend_initmult2()
@@ -218,89 +219,101 @@ module qme_hierarchy
       write(*,*) 'mu_y =',mu(:,2)
       write(*,*) 'mu_z =',mu(:,3)
 
-      rhoC = 0.0_dp
-
-      ! Initial condition
-      do nnn = 1, Nhier
-        do s=1, Nsys
-          rhoC(nnn, s, 0) = mu(s, dir1)
-        end do
-      end do
-
-      do nnt1 = 1, Ntimestept1
-        if(submethod1 == 'I' .and. nnt1 > 1) then
-            exit
+      ! cycle over frequencies, probably necessary evil
+      do rwn = -25, 25
+        if((submethod1 == 'I') .and. rwn > -25) then
+           exit
         end if
 
-        ! initialize t2
+        local_rwa = rwn*20
+        rhoC = 0.0_dp
+
+        ! Initial condition
         do nnn = 1, Nhier
-          do s = 1, Nsys
-            do s2 = 1, Nsys
-              rhoC(nnn, s, s2) = mu(s, dir2) * rhoC(nnn, s2, 0)
-            end do
+          do s=1, Nsys
+            rhoC(nnn, s, 0) = mu(s, dir1)
           end do
         end do
 
-        write(*,*) '   nnt1 = ', nnt1
-        call flush()
-
-        write(*,*) rhoC(1, 1:, 0)
-
-        ! store the time evolution
-        rhotmp2 = rhoC
-
-        ! propagate t2
-        do nnt2 = 1, Ntimestept2-nnt1
-          do s = 1, Nsys
-          do s2 = 1, Nsys
-
-          if(submethod1 == 'D') then
-            nnt = nnt1+nnt2-1
-            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
-          else
-            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
-            end do
+        absmaxcoh0 = maxval(abs(rhoC(1,:,:)))
+        do nnt1 = 1, Ntimestept1
+          if(submethod1 == 'I' .and. nnt1 > 1) then
+            exit
+          end if
+          if(maxval(abs(rhoC(1,:,:))) / absmaxcoh0 < 0.01) then
+            exit
           end if
 
-          end do
+          ! initialize t2
+          do nnn = 1, Nhier
+            do s = 1, Nsys
+              do s2 = 1, Nsys
+                rhoC(nnn, s, s2) = mu(s, dir2) * rhoC(nnn, s2, 0)
+              end do
+            end do
           end do
 
+          write(*,*) '   nnt1 = ', nnt1
+          call flush()
 
-          do nin = 1, Ntimestept2in
+          write(*,*) rhoC(1, 1:, 0)
+
+          ! store the time evolution
+          rhotmp2 = rhoC
+
+          ! propagate t2
+          do nnt2 = 1, Ntimestept2-nnt1
+            do s = 1, Nsys
+            do s2 = 1, Nsys
+
+            if(submethod1 == 'D') then
+              nnt = nnt1+nnt2-1
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+            else
+              do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+                rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+              end do
+            end if
+
+            end do
+            end do
+
+
+            do nin = 1, Ntimestept2in
+              call arend_propagateC(dt)
+            end do
+          end do
+
+                      if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
+                      call open_files()
+
+                      ! print outcome
+                      do nnt=1,Ntimestept2
+                        rhotmp(:,:) = rho_physical(:,:,nnt)
+                        if(exciton_basis) then
+                          call operator_to_exc(rhotmp(1:,1:),'E')
+                          !call operator_to_exc(rhotmp(0,1:),'O')
+                          !call operator_to_exc(rhotmp(1:,0),'O')
+                        end if
+                        do s=1, Nsys
+                        do s2=1, Nsys
+                          write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                        end do
+                        end do
+                      end do
+
+                      call close_files()
+                      end if
+
+          ! restore the time evolution
+          rhoC = rhotmp2
+
+          ! propagate t1
+          do nin = 1, Ntimestept1in
             call arend_propagateC(dt)
           end do
-        end do
-
-                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
-                  call open_files()
-
-                  ! print outcome
-                  do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt)
-                      if(exciton_basis) then
-                        call operator_to_exc(rhotmp(1:,1:),'E')
-                        !call operator_to_exc(rhotmp(0,1:),'O')
-                        !call operator_to_exc(rhotmp(1:,0),'O')
-                      end if
-                      do s=1, Nsys
-                      do s2=1, Nsys
-                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
-                      end do
-                      end do
-                  end do
-
-                  call close_files()
-                  end if
-
-        ! restore the time evolution
-        rhoC = rhotmp2
-
-        ! propagate t1
-        do nin = 1, Ntimestept1in
-          call arend_propagateC(dt)
-        end do
-      end do ! over nnt1
+        end do ! over nnt1
+      end do ! over rwn
 
     end subroutine arend_mancal_valkunas_quantum_light2
 
@@ -1751,6 +1764,7 @@ module qme_hierarchy
       ! Lmult1 part
       do n = 1, Nhier
         result(n,1:,0) = result(n,1:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
+        result(n,1:,0)  = result(n,1:,0) + iconst * local_rwa  !!! integration over local_rwa
 
         do j=1, Nsys
           result(n,1:,0) = result(n,1:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),1:,0))
