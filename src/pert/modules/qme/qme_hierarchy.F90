@@ -317,7 +317,7 @@ module qme_hierarchy
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
       integer(i4b) :: nnt, rwn
-      integer(i4b), parameter :: rwpts = 500, rwrng = 500
+      integer(i4b), parameter :: rwpts = 5000, rwrng = 300
 
       call arend_initmult1()
       call arend_initmult2()
