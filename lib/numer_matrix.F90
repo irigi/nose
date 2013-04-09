@@ -112,7 +112,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     call eigsrt(W,S1)
@@ -149,7 +150,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     call eigsrt(W,S1)
@@ -187,7 +189,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     do i = 1, N
@@ -219,7 +222,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     do i = 1, N
@@ -675,15 +679,17 @@ contains
     integer(i4b)                                  :: i
 
     A = AAA
+    res = 0.0_dp
 
     call spec(AAA,S,AA)
     call inv(S,invS)
 
     A = matmul(matmul(invS,A),S)
     do i=1,size(A,1)
-        A(i,i) = exp(A(i,i))
+        if(A(i,i) > 0 .and. A(i,i) < 1) then
+            res = res - A(i,i)*log(A(i,i))
+        end if
     end do
-    A = matmul(matmul(S,A),invS)
 
   end function entropy_real
 
@@ -694,15 +700,17 @@ contains
     integer(i4b)                                      :: i
 
     A = AAA
+    res = 0.0_dp
 
     call spec(AAA,S,AA)
     call inv(S,invS)
 
     A = matmul(matmul(invS,A),S)
     do i=1,size(A,1)
-        A(i,i) = exp(A(i,i))
+        if(real(A(i,i)) > 0 .and. real(A(i,i)) < 1) then
+            res = res - real(A(i,i))*log(real(A(i,i)))
+        end if
     end do
-    A = matmul(matmul(S,A),invS)
 
   end function entropy_cmplx
 

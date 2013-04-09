@@ -291,7 +291,9 @@ module qme_hierarchy
                       end do
                       end do
 
-                      write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      if(maxval(abs(rhotmp + conjg(transpose(rhotmp)) )) > 1e-6 ) then
+                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      end if
                   end do
 
                   call close_files()
@@ -406,7 +408,9 @@ module qme_hierarchy
                       end do
                       end do
 
-                      write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      if(maxval(abs(rhotmp + conjg(transpose(rhotmp)) )) > 1e-6 ) then
+                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
+                      end if
                   end do
 
                   call close_files()
