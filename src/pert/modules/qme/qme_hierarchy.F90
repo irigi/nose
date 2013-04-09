@@ -200,8 +200,8 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
-      integer(i4b) :: nnt
-      real(dp)     :: LOCAL_RWA
+      integer(i4b) :: nnt, rwn
+      integer(i4b), parameter :: rwpts = 100, rwrng = 300
 
       call arend_initmult1()
       call arend_initmult2()
@@ -232,22 +232,24 @@ module qme_hierarchy
           exit
         end if
 
+        write(*,*) '   nnt1 = ', nnt1
+        write(*,*) rhoC(1, 1:, 0)
+        call flush()
+
+        ! store the time evolution
+        rhotmp2 = rhoC
+
         ! initialize t2
         do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rhoC(nnn, s, s2) = mu(s, dir2) * rhoC(nnn, s2, 0)
+              do rwn=-rwpts, rwpts ! integration over rwa
+                rhoC(nnn, s, s2) = rhoC(nnn, s, s2) + mu(s, dir2) * rhoC(nnn, s2, 0) &
+                                * exp(cmplx(0,1) * rwn/rwpts*rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)
+              end do
             end do
           end do
         end do
-
-        write(*,*) '   nnt1 = ', nnt1
-        call flush()
-
-        write(*,*) rhoC(1, 1:, 0)
-
-        ! store the time evolution
-        rhotmp2 = rhoC
 
         ! propagate t2
         do nnt2 = 1, Ntimestept2-nnt1
@@ -310,7 +312,8 @@ module qme_hierarchy
       character(len=128)     :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
-      integer(i4b) :: nnt
+      integer(i4b) :: nnt, rwn
+      integer(i4b), parameter :: rwpts = 100, rwrng = 300
 
       call arend_initmult1()
       call arend_initmult2()
@@ -344,7 +347,10 @@ module qme_hierarchy
         do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rho2(nnn, s, s2) = mu(s, dir2) * rho1(nnn, s2)
+              do rwn=-rwpts, rwpts ! integration over rwa
+                rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2) &
+                                * exp(cmplx(0,1) * rwn/rwpts*rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)
+              end do
             end do
           end do
         end do
@@ -353,13 +359,6 @@ module qme_hierarchy
         call flush()
 
         write(*,*) rho1(1, :)
-
-        !if(nnt1 /= 19) then
-        !    do nin = 1, Ntimestept1in
-        !        call arend_propagate1reph(dt)
-        !    end do
-        !    cycle
-        !end if
 
         ! propagate t2
         do nnt2 = 1, Ntimestept2-nnt1
