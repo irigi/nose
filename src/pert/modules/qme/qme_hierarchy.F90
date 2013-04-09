@@ -290,6 +290,8 @@ module qme_hierarchy
                         write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
                       end do
                       end do
+
+                      write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
                   end do
 
                   call close_files()
@@ -403,6 +405,8 @@ module qme_hierarchy
                         write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
                       end do
                       end do
+
+                      write(10,*) dt*Ntimestept2in*(nnt-1), entropy((rhotmp + conjg(transpose(rhotmp)))/trace(rhotmp + conjg(transpose(rhotmp))) )
                   end do
 
                   call close_files()
@@ -581,6 +585,11 @@ module qme_hierarchy
         open(unit=s+Nsys*s2+10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
       end do
       end do
+
+      ! entropy file
+      buff = 'rhoEntropy.dat'
+      call flush()
+      open(unit=10,file=trim(file_join(out_dir,adjustl(trim(buff)))))
     end subroutine open_files
 
     subroutine close_files()
@@ -589,6 +598,9 @@ module qme_hierarchy
         close(s+Nsys*s2+10)
       end do
       end do
+
+      !entropy file
+      close(10)
     end subroutine close_files
 
     subroutine arend_init()
