@@ -408,8 +408,17 @@ contains
             read_external_evops = .false.
             use_module_nakajima_zwanzig = .false.
             use_module_hierarchy = .true.
-            submethod1 = 'D'
-            submethod2 = '-'
+            submethod1 = 'H'
+            submethod2 = 'D'
+
+        else if (index(trim(method), "hierarchy-incoherent-delta") == 1) then
+
+            use_twoexcitons = .true.
+            read_external_evops = .false.
+            use_module_nakajima_zwanzig = .false.
+            use_module_hierarchy = .true.
+            submethod1 = 'I'
+            submethod2 = 'D'
 
         else if (index(trim(method), "hierarchy-incoherent") == 1) then
 

@@ -229,7 +229,7 @@ module qme_hierarchy
 
       do nnt1 = 1, Ntimestept1
         if(submethod1 == 'I' .and. nnt1 > 1) then
-            exit
+          exit
         end if
 
         ! initialize t2
@@ -254,7 +254,7 @@ module qme_hierarchy
           do s = 1, Nsys
           do s2 = 1, Nsys
 
-          if(submethod1 == 'D') then
+          if(submethod2 == 'D') then
             nnt = nnt1+nnt2-1
             rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
           else
@@ -366,7 +366,7 @@ module qme_hierarchy
           do s = 1, Nsys
           do s2 = 1, Nsys
 
-          if(submethod1 == 'D') then
+          if(submethod2 == 'D') then
             nnt = nnt1+nnt2-1
             rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
           else
