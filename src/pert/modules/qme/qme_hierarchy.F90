@@ -316,8 +316,8 @@ module qme_hierarchy
       character(len=128)     :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
-      integer(i4b) :: nnt, rwn
-      integer(i4b), parameter :: rwpts = 5000, rwrng = 300
+      integer(i4b) :: nnt
+      real(dp), parameter :: rwrng = 300
 
       call arend_initmult1()
       call arend_initmult2()
@@ -351,10 +351,8 @@ module qme_hierarchy
         do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              do rwn=-rwpts, rwpts ! integration over rwa
-                rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2) &
-                                * exp(cmplx(0,1) * rwn/rwpts*rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)
-              end do
+              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2) &
+                              * 2*sin(rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)/(nnt1*Ntimestept1in*dt)
             end do
           end do
         end do
