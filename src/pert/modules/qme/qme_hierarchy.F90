@@ -317,7 +317,6 @@ module qme_hierarchy
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
       integer(i4b) :: nnt
-      real(dp), parameter :: rwrng = 300
 
       call arend_initmult1()
       call arend_initmult2()
@@ -352,7 +351,7 @@ module qme_hierarchy
           do s = 1, Nsys
             do s2 = 1, Nsys
               rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2) &
-                              * 2*sin(rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)/(nnt1*Ntimestept1in*dt)
+                                                  + conjg(mu(s2, dir2) * rho1(nnn, s))
             end do
           end do
         end do
@@ -396,7 +395,7 @@ module qme_hierarchy
 
                   ! print outcome
                   do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt) + transpose(conjg(rho_physical(:,:,nnt)))
+                      rhotmp(:,:) = rho_physical(:,:,nnt)! + transpose(conjg(rho_physical(:,:,nnt)))
                       if(exciton_basis) then
                         call operator_to_exc(rhotmp(:,:),'E')
                       end if
@@ -823,7 +822,7 @@ module qme_hierarchy
       do s=1, Nsys
       do s2=1, Nsys
         if(s == s2) then
-          HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
+          HS(s,s) = iblocks(1,1)%sblock%en(s) !- rwa
         else
           HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
         end if
