@@ -350,8 +350,9 @@ module qme_hierarchy
         do nnn = 1, Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2) &
-                                                  + conjg(mu(s2, dir2) * rho1(nnn, s))
+              ! check the sign of rwa here
+              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
+                                                  + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
             end do
           end do
         end do
@@ -822,7 +823,7 @@ module qme_hierarchy
       do s=1, Nsys
       do s2=1, Nsys
         if(s == s2) then
-          HS(s,s) = iblocks(1,1)%sblock%en(s) !- rwa
+          HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
         else
           HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
         end if
