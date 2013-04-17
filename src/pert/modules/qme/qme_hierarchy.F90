@@ -165,15 +165,16 @@ module qme_hierarchy
         integer(i4b) :: i, j
 
         call print_log_message("fill_evolution_superoperator_hierarchy called",5)
-        if(submethod1 == 'E') then
+        if(type == 'E') then
         else
             call arend_main()
         end if
-        stop
+        !stop
     end subroutine fill_evolution_superoperator_hierarchy
 
     subroutine arend_main()
       character(len=128) :: buff
+      integer(i4b)       :: b
 
       call arend_init()
       call arend_allocate()
@@ -181,7 +182,10 @@ module qme_hierarchy
       call arend_init2()
 
       !call arend_benchmark_E(1,2)
-      !call arend_benchmark_O(1)
+
+      !do b=1, Nsys
+      !  call arend_benchmark_O(s)
+      !end do
 
       write(buff,*) 'Submethod used:',submethod1
       call print_log_message(adjustl(trim(buff)), 5)
@@ -200,8 +204,7 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
-      integer(i4b) :: nnt, rwn
-      integer(i4b), parameter :: rwpts = 100, rwrng = 300
+      integer(i4b) :: nnt
 
       call arend_initmult1()
       call arend_initmult2()
@@ -221,7 +224,7 @@ module qme_hierarchy
       rhoC = 0.0_dp
 
       ! Initial condition
-      do nnn = 1, Nhier
+      do nnn = 1, 1!Nhier
         do s=1, Nsys
           rhoC(nnn, s, 0) = mu(s, dir1)
         end do
@@ -240,13 +243,11 @@ module qme_hierarchy
         rhotmp2 = rhoC
 
         ! initialize t2
-        do nnn = 1, Nhier
+        do nnn = 1, 1!Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              do rwn=-rwpts, rwpts ! integration over rwa
-                rhoC(nnn, s, s2) = rhoC(nnn, s, s2) + mu(s, dir2) * rhoC(nnn, s2, 0) &
-                                * exp(cmplx(0,1) * rwn/rwpts*rwrng/Energy_internal_to_cm * nnt1*Ntimestept1in*dt)
-              end do
+              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
+                                                   + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
             end do
           end do
         end do
@@ -334,7 +335,7 @@ module qme_hierarchy
       write(*,*) 'mu_z =',mu(:,3)
 
       ! Initial condition
-      do nnn = 1, Nhier
+      do nnn = 1, 1!Nhier
         do s=1, Nsys
           rho1(nnn, s) = mu(s, dir1)
         end do
@@ -347,7 +348,7 @@ module qme_hierarchy
 
         ! initialize t2
         rho2 = 0.0_dp
-        do nnn = 1, Nhier
+        do nnn = 1, 1!Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
               ! check the sign of rwa here
@@ -357,7 +358,7 @@ module qme_hierarchy
           end do
         end do
 
-        write(*,*) '   nnt1 = ', nnt1
+        !write(*,*) '   nnt1 = ', nnt1
         call flush()
 
         write(*,*) rho1(1, :)
@@ -447,7 +448,7 @@ module qme_hierarchy
       !call arend_initmult3()
 
       ! Initial condition
-      do nnn = 1, Nhier
+      do nnn = 1, 1!Nhier
         do s=1, Nsys
                               if(s == i0) then
                                 rho1(nnn, s) = 1.0
@@ -471,7 +472,7 @@ module qme_hierarchy
 
       ! initialize t2
       rho2 = 0.0_dp
-      do nnn = 1, Nhier
+      do nnn = 1, 1!Nhier
                               if(exciton_basis) then
                                 call operator_to_exc(rho1(nnn,:),'O')
                               end if
@@ -538,7 +539,7 @@ module qme_hierarchy
       !call arend_initmult3()
 
       ! Initial condition
-      do nnn = 1, Nhier
+      do nnn = 1, 1!Nhier
         do s=1, Nsys
                               if(s == i0) then
                                 rho1(nnn, s) = 1.0
@@ -555,7 +556,11 @@ module qme_hierarchy
         call flush()
 
         do s=1, Nsys
-            write(s+10,*) dt*Ntimestept2in*(nnt1-1)/1e15, real(rho1(1,s)), aimag(rho1(1,s))
+            write(s+10,*) dt*Ntimestept2in*(nnt1-1)/1e15, real(rho1(1,s)) , aimag(rho1(1,s))
+
+            if(mod(nnt1, Ntimestept1in) == 1) then
+              evops(1,1)%Ueg(i0,1, s,1, INT((nnt1-1)/Ntimestept1in) + 1) = rho1(1,s)
+            end if
         end do
 
         ! propagate t1
@@ -563,7 +568,7 @@ module qme_hierarchy
           call arend_propagate1reph(dt)
         end do
 
-      end do ! over nnt
+      end do ! over nnt1
 
       do s=1, Nsys
         close(s+10)
