@@ -247,8 +247,8 @@ module qme_hierarchy
         do nnn = 1, 1!Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
-                                                   + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
+              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
+                                                   + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
             end do
           end do
         end do
@@ -1768,7 +1768,7 @@ module qme_hierarchy
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
-      real(dp), parameter       :: RELAX = 1/100.0_dp
+      real(dp), parameter       :: RELAX = 0/100.0_dp
 
       result(:,:,:) = 0.0
 
