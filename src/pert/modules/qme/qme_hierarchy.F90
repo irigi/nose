@@ -1767,7 +1767,8 @@ module qme_hierarchy
       real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
-      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+      complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
+      real(dp), parameter       :: RELAX = 1/100.0_dp
 
       result(:,:,:) = 0.0
 
@@ -1798,6 +1799,9 @@ module qme_hierarchy
           result(n,1:,1:) = result(n,1:,1:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),1:,1:))
           result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permmin(n,j),1:,1:), opMinRight2(n,j,:,:))
         end do
+
+        ! relaxation
+        result(n,1:,1:) = result(n,1:,1:) - RELAX * rhoin(n,1:,1:)
       end do
 
       ! channel to the ground state here?
