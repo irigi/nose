@@ -155,6 +155,7 @@ module qme_hierarchy
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
+ 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
