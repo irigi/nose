@@ -1,7 +1,7 @@
 #
 #
 #
-AC_INIT(nose,0.5.10.682,tomas.mancal@mff.cuni.cz)
+AC_INIT(nose,0.5.10.680,tomas.mancal@mff.cuni.cz)
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR([src])

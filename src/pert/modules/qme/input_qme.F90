@@ -402,6 +402,15 @@ contains
             submethod1 = 'E'
             submethod2 = '-'
 
+        else if (index(trim(method), "hierarchy-closed") == 1) then
+
+            use_twoexcitons = .true.
+            read_external_evops = .false.
+            use_module_nakajima_zwanzig = .false.
+            use_module_hierarchy = .true.
+            submethod1 = 'C'
+            submethod2 = '-'
+
         else if (index(trim(method), "hierarchy-delta") == 1) then
 
             use_twoexcitons = .true.

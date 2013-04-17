@@ -155,7 +155,7 @@ module qme_hierarchy
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
- 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
+ 	        !res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
@@ -166,7 +166,7 @@ module qme_hierarchy
         integer(i4b) :: i, j
 
         call print_log_message("fill_evolution_superoperator_hierarchy called",5)
-        if(type == 'E') then
+        if(submethod1 == 'E') then
         else
             call arend_main()
         end if
@@ -191,7 +191,7 @@ module qme_hierarchy
       write(buff,*) 'Submethod used:',submethod1
       call print_log_message(adjustl(trim(buff)), 5)
 
-      call arend_mancal_valkunas_quantum_light(submethod1)
+      call arend_mancal_valkunas_quantum_light2(submethod1)
 
 
 
@@ -810,6 +810,10 @@ module qme_hierarchy
         beta(s) = 1/kB_intK/temp
         Dlong(s) = 1.0_dp
         Dtrans(s) = 0.0_dp
+
+        if(submethod1 == 'C') then
+          Dlong(s) = 0.0_dp
+        end if
 
         write(buff,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
         call print_log_message(adjustl(trim(buff)),5)
