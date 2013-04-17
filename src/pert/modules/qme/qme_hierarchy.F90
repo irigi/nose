@@ -155,7 +155,7 @@ module qme_hierarchy
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
- 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
+ 	        !res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
@@ -260,10 +260,10 @@ module qme_hierarchy
 
           if(submethod2 == 'D') then
             nnt = nnt1+nnt2-1
-            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
           else
             do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
             end do
           end if
 
@@ -371,10 +371,10 @@ module qme_hierarchy
 
           if(submethod2 == 'D') then
             nnt = nnt1+nnt2-1
-            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
           else
             do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt, (nnt-nnt1-nnt2+1)*dt)
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
             end do
           end if
 
@@ -627,6 +627,10 @@ module qme_hierarchy
       Ntimestept1in = gt(1)
       Ntimestept2in = gt(2)
       Ntimestept3in = gt(3)
+
+      if(Ntimestept1in /= Ntimestept2in) then
+        call print_error_message(-1,'Ntimestept1in /= Ntimestept2in, internal error')
+      end if
 
 
       write(buff,*) 'number of elements in hierarchy = ', Nhier
