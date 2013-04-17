@@ -155,7 +155,7 @@ module qme_hierarchy
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
- 	        !res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
+ 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
@@ -1768,7 +1768,7 @@ module qme_hierarchy
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
-      real(dp), parameter       :: RELAX = 1/100.0_dp
+      real(dp), parameter       :: RELAX = 0/100.0_dp
 
       result(:,:,:) = 0.0
 
