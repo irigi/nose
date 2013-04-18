@@ -205,6 +205,7 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
+      real(dp)     :: time1, time2, time
       integer(i4b) :: nnt
 
       call arend_initmult1()
@@ -236,6 +237,8 @@ module qme_hierarchy
           exit
         end if
 
+        time1 = (nnt1-1)*Ntimestept1in*dt
+
         write(*,*) '   nnt1 = ', nnt1
         write(*,*) rhoC(1, 1:, 0)
         call flush()
@@ -247,29 +250,32 @@ module qme_hierarchy
         do nnn = 1, 1!Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
-                                                   + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
+              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -time1*rwa*cmplx(0,1) ) &
+                                                   + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -time1*rwa*cmplx(0,1) ) )
             end do
           end do
         end do
 
         ! propagate t2
         do nnt2 = 1, Ntimestept2-nnt1
+          time2 = (nnt2-1)*Ntimestept2in*dt
+
           do s = 1, Nsys
           do s2 = 1, Nsys
 
           if(submethod2 == 'D') then
             nnt = nnt1+nnt2-1
-            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
+            time = (nnt-1)*Ntimestept1in*dt
+            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF(time - time2, time - time2 - time1)*dt*Ntimestept1in
           else
             do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
+              time = (nnt-1)*Ntimestept1in*dt
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF(time - time2, time - time2 - time1)*dt*Ntimestept1in
             end do
           end if
 
           end do
           end do
-
 
           do nin = 1, Ntimestept2in
             call arend_propagateC(dt)
