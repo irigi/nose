@@ -206,6 +206,7 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
+      complex(dpc) :: intFactor
       integer(i4b) :: nnt
 
       call arend_initmult1()
@@ -238,6 +239,7 @@ module qme_hierarchy
         end if
 
         time1 = (nnt1-1)*Ntimestept1in*dt
+        intFactor = ( exp( -dt*Ntimestept1in*rwa*cmplx(0,1) ) -  1.0_dp )/rwa*cmplx(0.0,1.0) / (dt*Ntimestept1in)
 
         write(*,*) '   nnt1 = ', nnt1
         write(*,*) rhoC(1, 1:, 0)
@@ -250,8 +252,8 @@ module qme_hierarchy
         do nnn = 1, 1!Nhier
           do s = 1, Nsys
             do s2 = 1, Nsys
-              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -time1*rwa*cmplx(0,1) ) &
-                                                   + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -time1*rwa*cmplx(0,1) ) )
+              rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -time1*rwa*cmplx(0,1) ) * intFactor          &
+                                                   + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -time1*rwa*cmplx(0,1) ) ) * intFactor
             end do
           end do
         end do
@@ -295,12 +297,12 @@ module qme_hierarchy
                       end if
                       do s=1, Nsys
                       do s2=1, Nsys
-                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
                       end do
                       end do
 
                       if(maxval(abs(rhotmp)) > 1e-6 ) then
-                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp) )
+                        write(10,*) dt*Ntimestept2in*(nnt), entropy(rhotmp/trace(rhotmp) )
                       end if
                   end do
 
