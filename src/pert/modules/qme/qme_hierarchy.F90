@@ -254,6 +254,10 @@ module qme_hierarchy
             do s2 = 1, Nsys
               rhoC(nnn, s, s2) = rhoC(nnn, s, s2)  + mu(s, dir2) * rhoC(nnn, s2, 0)* exp( -time1*rwa*cmplx(0,1) ) * intFactor          &
                                                    + conjg(mu(s2, dir2) * rhoC(nnn, s, 0) * exp( -time1*rwa*cmplx(0,1) ) ) * intFactor
+
+              if(nnt == 1) then
+                rhoC(nnn, s, s2) = rhoC(nnn, s, s2) / 2
+              end if
             end do
           end do
         end do
