@@ -54,26 +54,26 @@ contains
       max_byte_size = total_byte_size
     end if
     !print *, real(arg)/real(1024*1024)
-    print *, int(real(get_byte_count())/real(1024**2)),'MB'
-    call flush()
+    !print *, int(real(get_byte_count())/real(1024**2)),'MB'
+    !call flush()
   end subroutine count_bytes
 
   subroutine uncount_bytes(arg)
     integer(c_size_t) :: arg
     total_byte_size = total_byte_size - arg
-    print *, int(real(get_byte_count())/real(1024**2)),'MB'
-    call flush()
+    !print *, int(real(get_byte_count())/real(1024**2)),'MB'
+    !call flush()
   end subroutine uncount_bytes
 
   subroutine count_name(name)
     character(len=*) :: name
-    write(*,'(A,A,I6,A)', advance='no') "Allocating ", name, int(real(get_byte_count())/real(1024**2)),' MB  ->'
-    call flush()
+    !write(*,'(A,A,I6,A)', advance='no') "Allocating ", name, int(real(get_byte_count())/real(1024**2)),' MB  ->'
+    !call flush()
   end subroutine count_name
 
   subroutine uncount_name(name)
     character(len=*) :: name
-	write(*,'(A,A,I6,A)', advance='no') "Deallocating ", name, int(real(get_byte_count())/real(1024**2)),'MB'
+	!write(*,'(A,A,I6,A)', advance='no') "Deallocating ", name, int(real(get_byte_count())/real(1024**2)),'MB'
     call flush()
   end subroutine uncount_name
 

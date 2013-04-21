@@ -34,6 +34,7 @@ module resources_qme
     complex, dimension(:,:,:), allocatable :: qme_2D_ftpe !, qme_2D_esa, qme_2D_gs
 
     logical :: use_module_nakajima_zwanzig, tau_projector_normalization_for_others, &
+                use_module_hierarchy, &
     			qme_module_already_initiated = .false.
 
     type(populations)        :: pops
