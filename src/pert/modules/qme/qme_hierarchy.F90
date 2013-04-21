@@ -155,7 +155,7 @@ module qme_hierarchy
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
  	        res = exp(-abs(t1 - t2)*gamma)
- 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
+ 	        !res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
@@ -276,7 +276,7 @@ module qme_hierarchy
           else
             do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
               time = (nnt-1)*Ntimestept1in*dt
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF(time - time2, time - time2 - time1)*dt*Ntimestept1in
+              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rhoC(1,s,s2)*light_CF(time - time2, time - time2 - time1)*dt*Ntimestept1in*dt*Ntimestept1in
             end do
           end if
 
