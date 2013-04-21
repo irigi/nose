@@ -65,6 +65,11 @@ module numer_matrix
     	module procedure trace_cmplx
     end interface
 
+    interface entropy
+        module procedure entropy_real
+        module procedure entropy_cmplx
+    end interface
+
     public :: spec, spec2, inv, matrix_power, trace, matrix_exp
 
 	private :: eigsrt, eigconvention, iminloc
@@ -76,6 +81,7 @@ module numer_matrix
 	private :: matrix_exp_cmplx !, matrix_exp_cmplx2, matrix_exp_cmplx3
 	private :: spec_generalized_real, spec_generalized_cmplx, eigsrt_real_mat, eigsrt_cmplx_mat
 	private :: trace_real, trace_cmplx
+	private :: entropy_real, entropy_cmplx
 
 
 contains
@@ -106,7 +112,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     call eigsrt(W,S1)
@@ -143,7 +150,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     call eigsrt(W,S1)
@@ -181,7 +189,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     do i = 1, N
@@ -213,7 +222,8 @@ contains
     call std_lapack_geev(AC,W,W2,VR=S1,INFO=info)
 
     if (info.ne.0) then
-       stop "error in spec: lapack error"
+       write(*,*) "error in spec: lapack error", info
+       stop
     end if
 
     do i = 1, N
@@ -658,5 +668,50 @@ contains
   		tr = tr + A(i,i)
   	end do
   end function trace_cmplx
+
+  !
+  ! matrix exponential
+  !
+  real(dp) function entropy_real(AAA) result(res)
+    real(dp), dimension(:,:), intent(in)          :: AAA
+
+    real(dp), dimension(size(AAA,1),size(AAA,2))  :: S, invS, AA, A
+    integer(i4b)                                  :: i
+
+    A = AAA
+    res = 0.0_dp
+
+    call spec(AAA,S,AA)
+    call inv(S,invS)
+
+    A = matmul(matmul(invS,A),S)
+    do i=1,size(A,1)
+        if(A(i,i) > 0 .and. A(i,i) < 1) then
+            res = res - A(i,i)*log(A(i,i))
+        end if
+    end do
+
+  end function entropy_real
+
+  real(dp) function entropy_cmplx(AAA) result(res)
+    complex(dpc), dimension(:,:), intent(in)          :: AAA
+
+    complex(dpc), dimension(size(AAA,1),size(AAA,2))  :: S, invS, AA, A
+    integer(i4b)                                      :: i
+
+    A = AAA
+    res = 0.0_dp
+
+    call spec(AAA,S,AA)
+    call inv(S,invS)
+
+    A = matmul(matmul(invS,A),S)
+    do i=1,size(A,1)
+        if(real(A(i,i)) > 0 .and. real(A(i,i)) < 1) then
+            res = res - real(A(i,i))*log(real(A(i,i)))
+        end if
+    end do
+
+  end function entropy_cmplx
 
 end module numer_matrix
