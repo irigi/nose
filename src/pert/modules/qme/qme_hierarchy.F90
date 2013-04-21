@@ -1784,7 +1784,7 @@ module qme_hierarchy
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
-      real(dp), parameter       :: RELAX = 0/100.0_dp
+      real(dp), parameter       :: RELAX = 1/100.0_dp
 
       result(:,:,:) = 0.0
 
