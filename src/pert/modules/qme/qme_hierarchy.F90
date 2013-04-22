@@ -43,19 +43,24 @@ module qme_hierarchy
  	! declarations
 
  	character(len=64), parameter, private :: external_dir = "external", config_filename = "config.prm", &
- 	                    out_filename = 'hierarchy_out.dat'
+ 	                    out_filename = 'hierarchy_out.dat', config_filename_arend = "configA.prm"
 
 
 
 
     integer(i4b), private:: Nsys ! system size
-    integer(i4b), parameter, private:: tmax = 6 ! depth of the hierarchy
+    integer(i4b), private:: tmax = 6 ! depth of the hierarchy
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
     integer(i4b), private:: Ntimestept1in = 0 ! number of time steps during t1 in inner loop
     integer(i4b), private:: Ntimestept2   = 0 ! number of time steps during t2 in outer loop
     integer(i4b), private:: Ntimestept2in = 0 ! number of time steps during t2 in inner loop
     integer(i4b), private:: Ntimestept3   = 0 ! number of time steps during t3 in outer loop
     integer(i4b), private:: Ntimestept3in = 0 ! number of time steps during t3 in inner loop
+
+    real(dp), private :: central_frequency = 0
+    real(dp), private :: max_light_time    = 1e9
+    real(dp), private :: global_relax_rate = 0
+    logical           :: gaussian_pulse    = .false.
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
@@ -144,6 +149,7 @@ module qme_hierarchy
     private::open_files
     private::arend_mancal_valkunas_quantum_light
     private::arend_mancal_valkunas_quantum_light2
+    private::read_config_file
 
  	contains
 
@@ -154,12 +160,54 @@ module qme_hierarchy
  	    gamma = 1/tau_of_projector
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
+          if(.not. gaussian_pulse) then
  	        res = exp(-abs(t1 - t2)*gamma)
- 	        res = res * exp(abs(t1 - t2)*rwa*cmplx(0,1))
+ 	      else
+ 	        res = exp(-(t1 - t2)*(t1 - t2)*gamma*gamma)
+ 	      end if
+ 	        res = res * exp(abs(t1 - t2)*central_frequency*cmplx(0,1))
  	    else
  	        res = 0.0_dp
  	    end if
+
+ 	    if(max(t1,t2) > max_light_time) then
+ 	        res = 0.0_dp
+ 	    end if
  	end function light_CF
+
+ 	subroutine read_config_file
+ 	    character(len=256)  :: buff = ""
+ 	    real(dp)            :: value = 0.0_dp
+ 	    integer(i4b)        :: i = 0
+
+        open(unit=32,file=trim(trim(out_dir)//trim('/../')//trim(external_dir)//'/'//trim(config_filename_arend) ) , err=32, status='old')
+
+        tmax = 6
+
+
+        do while(i == 0)
+          read(32, *, iostat=i) buff, value
+
+          if(trim(adjustl(buff)) == 'tier') then
+            write(*,*) buff, int(value)
+            tmax = int(value)
+          elseif(trim(adjustl(buff)) == 'maxLightTime') then
+            write(*,*) buff, value
+            max_light_time = value
+          elseif(trim(adjustl(buff)) == 'centralFrequency') then
+            write(*,*) buff, value
+            central_frequency = value
+          elseif(trim(adjustl(buff)) == 'gaussianPulse') then
+            write(*,*) buff, int(value)
+          else
+            write(*,*) 'unrecognised:', buff, value
+          end if
+        end do
+
+        return
+
+32      call print_warning_message("couldn't read the supplementary config file, using default values" ,5)
+ 	end subroutine read_config_file
 
     subroutine fill_evolution_superoperator_hierarchy(type)
         character, intent(in) :: type
@@ -178,6 +226,7 @@ module qme_hierarchy
       integer(i4b)       :: b
 
       call arend_init()
+      call read_config_file()
       call arend_allocate()
       call arend_fill_parameters()
       call arend_init2()
@@ -1784,7 +1833,6 @@ module qme_hierarchy
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
-      real(dp), parameter       :: RELAX = 0/100.0_dp
 
       result(:,:,:) = 0.0
 
@@ -1817,7 +1865,7 @@ module qme_hierarchy
         end do
 
         ! relaxation
-        result(n,1:,1:) = result(n,1:,1:) - RELAX * rhoin(n,1:,1:)
+        result(n,1:,1:) = result(n,1:,1:) - global_relax_rate * rhoin(n,1:,1:)
       end do
 
       ! channel to the ground state here?
