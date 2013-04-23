@@ -148,7 +148,7 @@ module qme_hierarchy
     private::light_CF
     private::close_files
     private::open_files
-    private::arend_mancal_valkunas_quantum_light
+    !private::arend_mancal_valkunas_quantum_light
     private::arend_mancal_valkunas_quantum_light2
     private::read_config_file
 
@@ -402,116 +402,116 @@ module qme_hierarchy
     end subroutine arend_mancal_valkunas_quantum_light2
 
 
-    subroutine arend_mancal_valkunas_quantum_light(type)
-      character, intent(in)  :: type
-      character(len=128)     :: buff, buff2
-      complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
-      complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
-      integer(i4b) :: nnt
-
-      call arend_initmult1()
-      call arend_initmult2()
-      rho_physical = 0.0_dp
-
-      ! XXXXXXXXXXXXXXXx
-        dir1 = 1
-        dir2 = 1
-        dir3 = 1
-        dir4 = 1
-      ! XXXXXXXXXXXXXXXx
-
-      write(*,*) 'mu_x =',mu(:,1)
-      write(*,*) 'mu_y =',mu(:,2)
-      write(*,*) 'mu_z =',mu(:,3)
-
-      ! Initial condition
-      do nnn = 1, 1!Nhier
-        do s=1, Nsys
-          rho1(nnn, s) = mu(s, dir1)
-        end do
-      end do
-
-      do nnt1 = 1, Ntimestept1
-        if(submethod1 == 'I' .and. nnt1 > 1) then
-          exit
-        end if
-
-        ! initialize t2
-        rho2 = 0.0_dp
-        do nnn = 1, 1!Nhier
-          do s = 1, Nsys
-            do s2 = 1, Nsys
-              ! check the sign of rwa here
-              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
-                                                  + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
-            end do
-          end do
-        end do
-
-        !write(*,*) '   nnt1 = ', nnt1
-        call flush()
-
-        write(*,*) rho1(1, :)
-
-        ! propagate t2
-        do nnt2 = 1, Ntimestept2-nnt1
-          do s = 1, Nsys
-          do s2 = 1, Nsys
-
-          if(submethod2 == 'D') then
-            nnt = nnt1+nnt2-1
-            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
-          else
-            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
-            end do
-          end if
-
-          end do
-          end do
-
-          !! XXXXXXXXXX
-          !rho_physical(:,:,nnt2) = rho2(1,:,:)
-
-          !if(real(rho2(1,1,1)) < 0) then
-          !  write(*,*) nnt1, nnt2, rho2(1,1,1), abs(rho1(1, :))
-          !end if
-
-          do nin = 1, Ntimestept2in
-            call arend_propagate2(dt)
-          end do
-        end do
-
-                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
-                  call open_files()
-
-                  ! print outcome
-                  do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt)! + transpose(conjg(rho_physical(:,:,nnt)))
-                      if(exciton_basis) then
-                        call operator_to_exc(rhotmp(:,:),'E')
-                      end if
-                      do s=1, Nsys
-                      do s2=1, Nsys
-                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
-                      end do
-                      end do
-
-                      if(maxval(abs(rhotmp)) > 1e-6 ) then
-                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp))
-                      end if
-                  end do
-
-                  call close_files()
-                  end if
-
-        ! propagate t1
-        do nin = 1, Ntimestept1in
-          call arend_propagate1reph(dt)
-        end do
-      end do ! over nnt1
-
-    end subroutine arend_mancal_valkunas_quantum_light
+!    subroutine arend_mancal_valkunas_quantum_light(type)
+!      character, intent(in)  :: type
+!      character(len=128)     :: buff, buff2
+!      complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
+!      complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
+!      integer(i4b) :: nnt
+!
+!      call arend_initmult1()
+!      call arend_initmult2()
+!      rho_physical = 0.0_dp
+!
+!      ! XXXXXXXXXXXXXXXx
+!        dir1 = 1
+!        dir2 = 1
+!        dir3 = 1
+!        dir4 = 1
+!      ! XXXXXXXXXXXXXXXx
+!
+!      write(*,*) 'mu_x =',mu(:,1)
+!      write(*,*) 'mu_y =',mu(:,2)
+!      write(*,*) 'mu_z =',mu(:,3)
+!
+!      ! Initial condition
+!      do nnn = 1, 1!Nhier
+!        do s=1, Nsys
+!          rho1(nnn, s) = mu(s, dir1)
+!        end do
+!      end do
+!
+!      do nnt1 = 1, Ntimestept1
+!        if(submethod1 == 'I' .and. nnt1 > 1) then
+!          exit
+!        end if
+!
+!        ! initialize t2
+!        rho2 = 0.0_dp
+!        do nnn = 1, 1!Nhier
+!          do s = 1, Nsys
+!            do s2 = 1, Nsys
+!              ! check the sign of rwa here
+!              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
+!                                                  + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
+!            end do
+!          end do
+!        end do
+!
+!        !write(*,*) '   nnt1 = ', nnt1
+!        call flush()
+!
+!        write(*,*) rho1(1, :)
+!
+!        ! propagate t2
+!        do nnt2 = 1, Ntimestept2-nnt1
+!          do s = 1, Nsys
+!          do s2 = 1, Nsys
+!
+!          if(submethod2 == 'D') then
+!            nnt = nnt1+nnt2-1
+!            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
+!          else
+!            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
+!              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
+!            end do
+!          end if
+!
+!          end do
+!          end do
+!
+!          !! XXXXXXXXXX
+!          !rho_physical(:,:,nnt2) = rho2(1,:,:)
+!
+!          !if(real(rho2(1,1,1)) < 0) then
+!          !  write(*,*) nnt1, nnt2, rho2(1,1,1), abs(rho1(1, :))
+!          !end if
+!
+!          do nin = 1, Ntimestept2in
+!            call arend_propagate2(dt)
+!          end do
+!        end do
+!
+!                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
+!                  call open_files()
+!
+!                  ! print outcome
+!                  do nnt=1,Ntimestept2
+!                      rhotmp(:,:) = rho_physical(:,:,nnt)! + transpose(conjg(rho_physical(:,:,nnt)))
+!                      if(exciton_basis) then
+!                        call operator_to_exc(rhotmp(:,:),'E')
+!                      end if
+!                      do s=1, Nsys
+!                      do s2=1, Nsys
+!                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+!                      end do
+!                      end do
+!
+!                      if(maxval(abs(rhotmp)) > 1e-6 ) then
+!                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp))
+!                      end if
+!                  end do
+!
+!                  call close_files()
+!                  end if
+!
+!        ! propagate t1
+!        do nin = 1, Ntimestept1in
+!          call arend_propagate1reph(dt)
+!        end do
+!      end do ! over nnt1
+!
+!    end subroutine arend_mancal_valkunas_quantum_light
 
     subroutine arend_benchmark_E(i0,j0)
       integer(i4b), intent(in) :: i0, j0
