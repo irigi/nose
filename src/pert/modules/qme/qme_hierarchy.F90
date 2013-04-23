@@ -61,6 +61,7 @@ module qme_hierarchy
     real(dp), private :: max_light_time    = 1e9
     real(dp), private :: global_relax_rate = 0
     logical           :: gaussian_pulse    = .false.
+    logical           :: normalize_trace   = .false.
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
@@ -191,14 +192,35 @@ module qme_hierarchy
           if(trim(adjustl(buff)) == 'tier') then
             write(*,*) buff, int(value)
             tmax = int(value)
+
           elseif(trim(adjustl(buff)) == 'maxLightTime') then
             write(*,*) buff, value
             max_light_time = value
+
           elseif(trim(adjustl(buff)) == 'centralFrequency') then
             write(*,*) buff, value
             central_frequency = value
+
+          elseif(trim(adjustl(buff)) == 'globalRelaxRate') then
+            write(*,*) buff, value
+            global_relax_rate = value
+
           elseif(trim(adjustl(buff)) == 'gaussianPulse') then
             write(*,*) buff, int(value)
+            if(value == 1) then
+              gaussian_pulse = .true.
+            else
+              gaussian_pulse = .false.
+            end if
+
+          elseif(trim(adjustl(buff)) == 'normalizeTrace') then
+            write(*,*) buff, int(value)
+            if(value == 1) then
+              normalize_trace = .true.
+            else
+              normalize_trace = .false.
+            end if
+
           else
             write(*,*) 'unrecognised:', buff, value
           end if
@@ -343,11 +365,17 @@ module qme_hierarchy
                   ! print outcome
                   do nnt=1,Ntimestept2
                       rhotmp(:,:) = rho_physical(:,:,nnt) + transpose(conjg(rho_physical(:,:,nnt)))
+
                       if(exciton_basis) then
                         call operator_to_exc(rhotmp(1:,1:),'E')
                         !call operator_to_exc(rhotmp(0,1:),'O')
                         !call operator_to_exc(rhotmp(1:,0),'O')
                       end if
+
+                      if(normalize_trace) then
+                        rhotmp = rhotmp / (trace(rhotmp) + 1e-100_dp)
+                      end if
+
                       do s=1, Nsys
                       do s2=1, Nsys
                         write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
