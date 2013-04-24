@@ -60,6 +60,7 @@ module qme_hierarchy
     real(dp), private :: central_frequency = 0
     real(dp), private :: max_light_time    = 1e9
     real(dp), private :: global_relax_rate = 0
+    real(dp), private :: bloch_strength    = 0
     logical, private  :: gaussian_pulse    = .false.
     logical, private  :: normalize_trace   = .false.
     logical, private  :: bloch_term        = .false.
@@ -207,6 +208,10 @@ module qme_hierarchy
             write(*,*) buff, value
             global_relax_rate = value
 
+          elseif(trim(adjustl(buff)) == 'blochElectricFieldStrength') then
+            write(*,*) buff, value
+            bloch_strength = value
+
           elseif(trim(adjustl(buff)) == 'gaussianPulse') then
             write(*,*) buff, int(value)
             if(int(value) == 1) then
@@ -273,6 +278,7 @@ module qme_hierarchy
       call print_log_message(adjustl(trim(buff)), 5)
 
       if(bloch_term) then
+        write(*,*) central_frequency, rwa,central_frequency-rwa
         call arend_bloch_equations_CW(submethod1)
       else
         call arend_mancal_valkunas_quantum_light2(submethod1)
@@ -535,7 +541,6 @@ module qme_hierarchy
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
       complex(dpc) :: intFactor
-      integer(i4b) :: nnt
 
       call arend_initmult1()
       call arend_initmult2()
@@ -562,6 +567,8 @@ module qme_hierarchy
         end do
       end do
 
+      call open_files()
+
       do nnt1 = 1, Ntimestept1
         time1 = (nnt1-1)*Ntimestept1in*dt
 
@@ -569,12 +576,8 @@ module qme_hierarchy
         write(*,*) rhoC(1, 1:, 0)
         call flush()
 
-                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
-                  call open_files()
-
                   ! print outcome
-                  do nnt=1,Ntimestept2
-                      rhotmp(:,:) = rho_physical(:,:,nnt) !+ transpose(conjg(rho_physical(:,:,nnt)))
+                      rhotmp(:,:) = rhoC(1,:,:) !+ transpose(conjg(rho_physical(:,:,nnt)))
 
                       if(exciton_basis) then
                         call operator_to_exc(rhotmp(1:,1:),'E')
@@ -588,23 +591,23 @@ module qme_hierarchy
 
                       do s=1, Nsys
                       do s2=1, Nsys
-                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                        write(s+Nsys*s2+10,*) time1, real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
                       end do
                       end do
 
                       if(maxval(abs(rhotmp)) > 1e-6 ) then
-                        write(10,*) dt*Ntimestept2in*(nnt), entropy(rhotmp/trace(rhotmp) )
+                        write(10,*) time1, entropy(rhotmp/trace(rhotmp) )
                       end if
-                  end do
 
-                  call close_files()
-                  end if
+
 
         ! propagate t1
         do nin = 1, Ntimestept1in
           call arend_propagateC(dt)
         end do
       end do ! over nnt1
+
+      call close_files()
 
     end subroutine arend_bloch_equations_CW
 
@@ -1956,22 +1959,24 @@ module qme_hierarchy
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
+      real(dp)                  :: EE
 
       result(:,:,:) = 0.0
+      EE = bloch_strength
 
       if(bloch_term) then
         do n = 1, Nhier
           do s=1, Nsys
-            result(n,0,0) = result(n,0,0) + exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)               &
-                                          + conjg( exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0) )
+            result(n,0,0) = result(n,0,0) - iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
+                                          - conjg( iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)*EE )
 
-            result(n,s,0) = result(n,s,0) + exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,0,0)
+            result(n,s,0) = result(n,s,0) - iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,0,0)*EE
 
           do s2=1, Nsys
-            result(n,s,0) = result(n,s,0) + exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s2, 1)*rhoin(n,s,s2)
+            result(n,s,0) = result(n,s,0) + iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s2, 1)*rhoin(n,s,s2)*EE
 
-            result(n,s,s2) = result(n,s,s2) + exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)             &
-                                            + conjg(exp(cmplx(0,1)*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0))
+            result(n,s,s2) = result(n,s,s2) + iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s2, 1)*rhoin(n,s,0)*EE             &
+                                            + conjg( iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s2,0)*EE )
           end do
           end do
         end do
