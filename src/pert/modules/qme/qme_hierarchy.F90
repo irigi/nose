@@ -375,7 +375,7 @@ module qme_hierarchy
           end do
 
           do nin = 1, Ntimestept2in
-            call arend_propagateC(dt)
+            call arend_propagateC(dt, time1+time2)
           end do
         end do
 
@@ -415,7 +415,7 @@ module qme_hierarchy
 
         ! propagate t1
         do nin = 1, Ntimestept1in
-          call arend_propagateC(dt)
+          call arend_propagateC(dt, time1)
         end do
       end do ! over nnt1
 
@@ -603,7 +603,7 @@ module qme_hierarchy
 
         ! propagate t1
         do nin = 1, Ntimestept1in
-          call arend_propagateC(dt)
+          call arend_propagateC(dt, time1)
         end do
       end do ! over nnt1
 
@@ -1967,16 +1967,16 @@ module qme_hierarchy
       if(bloch_term) then
         do n = 1, Nhier
           do s=1, Nsys
-            result(n,0,0) = result(n,0,0) - iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
-                                          - conjg( iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s,0)*EE )
+            result(n,0,0) = result(n,0,0) - iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
+                                          - conjg( iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE )
 
-            result(n,s,0) = result(n,s,0) - iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,0,0)*EE
+            result(n,s,0) = result(n,s,0) - iconst*cos(central_frequency*tt)*exp(iconst*rwa*tt)*mu(s, 1)*rhoin(n,0,0)*EE
 
           do s2=1, Nsys
-            result(n,s,0) = result(n,s,0) + iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s2, 1)*rhoin(n,s,s2)*EE
+            result(n,s,0) = result(n,s,0) + iconst*cos(central_frequency*tt)*exp(iconst*rwa*tt)*mu(s2, 1)*rhoin(n,s,s2)*EE
 
-            result(n,s,s2) = result(n,s,s2) + iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s2, 1)*rhoin(n,s,0)*EE             &
-                                            + conjg( iconst*exp(iconst*(central_frequency - rwa)*tt)*mu(s, 1)*rhoin(n,s2,0)*EE )
+            result(n,s,s2) = result(n,s,s2) + iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s2, 1)*rhoin(n,s,0)*EE            &
+                                            + conjg( iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s2,0)*EE )
           end do
           end do
         end do
@@ -2017,11 +2017,11 @@ module qme_hierarchy
       ! channel to the ground state here?
     end subroutine arend_LmultC
 
-    subroutine arend_propagateC (dt)
-      real(dp), intent(in) :: dt
+    subroutine arend_propagateC (dt, time)
+      real(dp), intent(in) :: dt, time
 
       real(dp) :: t
-      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      t = time
 
       call arend_LmultC(t,rhoC,prhodxC)
       call ode_rk4(rhoC,prhodxC,t,dt,prhoxC,arend_LmultC)
