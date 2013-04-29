@@ -720,24 +720,45 @@ contains
   end function entropy_cmplx
 
   subroutine cholesky_real(A,U)
-    real(dp), dimension(:,:), intent(in)          :: A
-    real(dp), dimension(:,:), intent(out)         :: U
+    real(dp), dimension(:,:), intent(in)              :: A
+    real(dp), dimension(:,:), intent(out)             :: U
 
-    complex(dp), dimension(size(A,1),size(A,1))      :: X, Y
+    integer(i4b)                                      :: info, i, j, kd
+    real(dp), dimension(size(A,1),size(A,1))          :: X
 
-    X = A
-    Y = 0.0_dp
+    kd = size(A,1)-1
 
-    call cholesky_cmplx(X,Y)
+    X = 0.0_dp
 
-    U = real(Y)
+    do j=1,size(A,1)
+    do i=max(1,j-kd),j
+      X(kd+1+i-j,j) = A(i,j)
+    end do
+    end do
+
+    !write(*,*) X
+    !write(*,*)
+
+    call DPBTRF( 'U', size(A,1), kd, X, size(A,1), info )
+
+    !write(*,*) X
+
+    U = 0.0_dp
+
+    do j=1,size(A,1)
+    do i=max(1,j-kd),j
+      U(i,j) = X(kd+1+i-j,j)
+    end do
+    end do
+
+    write(*,*) 'cholesky info', info
   end subroutine cholesky_real
 
   subroutine cholesky_cmplx(A,U)
     complex(dpc), dimension(:,:), intent(in)          :: A
     complex(dpc), dimension(:,:), intent(out)         :: U
 
-    integer(i4b)                                  :: info, i, j, kd
+    integer(i4b)                                      :: info, i, j, kd
     complex(dpc), dimension(size(A,1),size(A,1))      :: X
 
     kd = size(A,1)-1
@@ -750,7 +771,12 @@ contains
     end do
     end do
 
-    call DPBTRF( 'U', size(A,1), kd, X, size(A,1), info )
+    !write(*,*) X
+    !write(*,*)
+
+    call ZPBTRF( 'U', size(A,1), kd, X, size(A,1), info )
+
+    !write(*,*) X
 
     U = 0.0_dp
 
@@ -760,7 +786,7 @@ contains
     end do
     end do
 
-    write(*,*) info
+    write(*,*) 'cholesky info', info
 
   end subroutine cholesky_cmplx
 

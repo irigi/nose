@@ -64,6 +64,8 @@ module qme_hierarchy
     logical, private  :: gaussian_pulse    = .false.
     logical, private  :: normalize_trace   = .false.
     logical, private  :: bloch_term        = .false.
+    logical, private  :: noise_term        = .false.
+    integer(i4b)      :: realizations      = 0
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
@@ -96,7 +98,8 @@ module qme_hierarchy
     integer(i4b), allocatable, private :: perm(:,:)
     integer(i4b), allocatable, private :: permplus(:,:), permmin(:,:)
 
-    complex(dpc), allocatable, private:: CholeskyCF(:,:)
+    complex(dpc), allocatable, private :: CholeskyCF(:,:)
+    complex(dpc), allocatable, private :: oonoise(:)
 
     integer(i4b), private:: tierstart, tier, kk1, kk2, currentindex, nnn, n, m, nnp, mp, w, wp
     integer(i4b), private:: dir1, dir2, dir3, dir4, pol
@@ -155,6 +158,7 @@ module qme_hierarchy
     !private::arend_mancal_valkunas_quantum_light
     private::arend_mancal_valkunas_quantum_light2
     private::arend_bloch_equations_CW
+    private::arend_bloch_equations_noise
     private::read_config_file
 
     private::generate_noise
@@ -241,6 +245,18 @@ module qme_hierarchy
               bloch_term = .false.
             end if
 
+          elseif(trim(adjustl(buff)) == 'noiseTerm') then
+            write(*,*) buff, int(value)
+            if(int(value) == 1) then
+              noise_term = .true.
+            else
+              noise_term = .false.
+            end if
+
+          elseif(trim(adjustl(buff)) == 'noiseRealizations') then
+            write(*,*) buff, int(value)
+            realizations = int(value)
+
           else
             write(*,*) 'unrecognised:', buff, value
           end if
@@ -267,24 +283,11 @@ module qme_hierarchy
       character(len=128) :: buff
       integer(i4b)       :: b
 
-      complex(dp), allocatable        :: oo(:)
-
       call arend_init()
       call read_config_file()
       call arend_allocate()
       call arend_fill_parameters()
       call arend_init2()
-
-      !call init_generate_noise()
-
-      !ALLOCATE(oo, (NtimestepT1*NtimestepT1In))
-
-      !call  generate_noise(oo)
-
-      !do b=1,size(oo)
-      !  write(*,*) 'rrrr', dt*b,oo(b)
-      !end do
-      !stop
 
       !call arend_benchmark_E(1,2)
 
@@ -298,6 +301,8 @@ module qme_hierarchy
       if(bloch_term) then
         write(*,*) central_frequency, rwa,central_frequency-rwa
         call arend_bloch_equations_CW(submethod1)
+      elseif(noise_term) then
+        call arend_bloch_equations_noise(submethod1)
       else
         call arend_mancal_valkunas_quantum_light2(submethod1)
       end if
@@ -555,14 +560,11 @@ module qme_hierarchy
       character, intent(in)  :: type
       character(len=128)     :: buff, buff2
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
-      complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
-      complex(dpc) :: intFactor
 
       call arend_initmult1()
       call arend_initmult2()
-      rho_physical = 0.0_dp
       bloch_term = .true.
 
       ! XXXXXXXXXXXXXXXx
@@ -628,6 +630,103 @@ module qme_hierarchy
       call close_files()
 
     end subroutine arend_bloch_equations_CW
+
+    subroutine arend_bloch_equations_noise(type)
+      character, intent(in)  :: type
+      character(len=128)     :: buff, buff2
+      complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
+      complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept1) :: rho_physical
+      complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
+      real(dp)     :: time1, time2, time
+      integer(i4b) :: nnoise
+
+
+      ALLOCATE(oonoise, (NtimestepT1*NtimestepT1In))
+
+      call arend_initmult1()
+      call arend_initmult2()
+      rho_physical = 0.0_dp
+      bloch_term = .false.
+      noise_term = .true.
+
+      call init_generate_noise()
+
+      write(*,*) 'RREERR'
+      call flush()
+
+      ! XXXXXXXXXXXXXXXx
+        dir1 = 1
+        dir2 = 1
+        dir3 = 1
+        dir4 = 1
+      ! XXXXXXXXXXXXXXXx
+
+      write(*,*) 'mu_x =',mu(:,1)
+      write(*,*) 'mu_y =',mu(:,2)
+      write(*,*) 'mu_z =',mu(:,3)
+
+    do nnoise=1, realizations
+      write(*,*) 'realization', nnoise
+      call generate_noise(oonoise)
+
+      rhoC = 0.0_dp
+
+      ! Initial condition -- ground state
+      do nnn = 1, 1!Nhier
+        do s=1, Nsys
+          rhoC(nnn, 0, 0) = 1
+        end do
+      end do
+
+      call open_files()
+
+      do nnt1 = 1, Ntimestept1
+        time1 = (nnt1-1)*Ntimestept1in*dt
+
+        !write(*,*) '   nnt1 = ', nnt1
+        !write(*,*) rhoC(1, 1:, 0)
+        call flush()
+
+                  ! print outcome
+                      rhotmp(:,:) = rhoC(1,:,:) !+ transpose(conjg(rho_physical(:,:,nnt)))
+
+                      if(exciton_basis) then
+                        call operator_to_exc(rhotmp(1:,1:),'E')
+                        !call operator_to_exc(rhotmp(0,1:),'O')
+                        !call operator_to_exc(rhotmp(1:,0),'O')
+                      end if
+
+                      if(normalize_trace) then
+                        rhotmp = rhotmp / (trace(rhotmp) + 1e-100_dp)
+                      end if
+
+                      rho_physical(:,:,nnt1) = rho_physical(:,:,nnt1) + rhotmp(:,:)
+
+                      do s=1, Nsys
+                      do s2=1, Nsys
+                        write(s+Nsys*s2+10,*) time1, real(rho_physical(s,s2,nnt1)), aimag(rho_physical(s,s2,nnt1))
+                      end do
+                      end do
+
+                      if(maxval(abs(rho_physical(:,:,nnt1))) > 1e-6 ) then
+                        write(10,*) time1, entropy(rho_physical(:,:,nnt1)/trace(rho_physical(:,:,nnt1)) )
+                      end if
+
+
+
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagateC(dt, time1)
+        end do
+      end do ! over nnt1
+
+      call close_files()
+
+    end do
+
+      DEALLOCATE(oonoise)
+
+    end subroutine arend_bloch_equations_noise
 
     subroutine arend_benchmark_E(i0,j0)
       integer(i4b), intent(in) :: i0, j0
@@ -1971,16 +2070,17 @@ module qme_hierarchy
       rho2 = prhox2
     end subroutine arend_propagate2
 
-    subroutine arend_LmultC (tt, rhoin, result)
+    subroutine arend_LmultC (ttt, rhoin, result)
       complex(dpc), intent(in)  :: rhoin(:,0:,0:)
-      real(dp), intent(in)      :: tt ! time (fs)
+      real(dp), intent(in)      :: ttt ! time (fs)
       complex(dpc), intent(out) :: result(:,0:,0:)
       integer:: n,j, nnp
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
-      real(dp)                  :: EE
+      real(dp)                  :: EE, tt
 
       result(:,:,:) = 0.0
       EE = bloch_strength
+      tt = ttt
 
       if(bloch_term) then
         do n = 1, Nhier
@@ -1995,6 +2095,26 @@ module qme_hierarchy
 
             result(n,s,s2) = result(n,s,s2) + iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s2, 1)*rhoin(n,s,0)*EE            &
                                             + conjg( iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s2,0)*EE )
+          end do
+          end do
+        end do
+      end if
+
+      if(noise_term) then
+        tt = min(max(0.5_dp, tt), dt*Ntimestept1*Ntimestept1In - 0.5)
+
+        do n = 1, Nhier
+          do s=1, Nsys
+            result(n,0,0) = result(n,0,0) - iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
+                                          - conjg( iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE )
+
+            result(n,s,0) = result(n,s,0) - iconst*oonoise(int(tt/dt+1))*exp(iconst*rwa*tt)*mu(s, 1)*rhoin(n,0,0)*EE
+
+          do s2=1, Nsys
+            result(n,s,0) = result(n,s,0) + iconst*oonoise(int(tt/dt+1))*exp(iconst*rwa*tt)*mu(s2, 1)*rhoin(n,s,s2)*EE
+
+            result(n,s,s2) = result(n,s,s2) + iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s2, 1)*rhoin(n,s,0)*EE            &
+                                            + conjg( iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s2,0)*EE )
           end do
           end do
         end do
@@ -2030,6 +2150,10 @@ module qme_hierarchy
 
         ! relaxation
         result(n,1:,1:) = result(n,1:,1:) - global_relax_rate * rhoin(n,1:,1:)
+
+        do s=1, Nsys
+          result(n,0,0) = result(n,0,0) + global_relax_rate * rhoin(n,s,s)
+        end do
       end do
 
       ! channel to the ground state here?
@@ -2188,6 +2312,14 @@ module qme_hierarchy
       end do
 
       call cholesky(tmp,CholeskyCF)
+
+            !write(*,*) real(tmp(:5,:5))
+            !write(*,*)
+            !write(*,*) real(CholeskyCF(1,:))
+
+      tmp = conjg(transpose(CholeskyCF))
+
+      CholeskyCF = tmp
 
       DEALLOCATE(tmp)
 
