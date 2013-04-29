@@ -96,6 +96,8 @@ module qme_hierarchy
     integer(i4b), allocatable, private :: perm(:,:)
     integer(i4b), allocatable, private :: permplus(:,:), permmin(:,:)
 
+    complex(dpc), allocatable, private:: CholeskyCF(:,:)
+
     integer(i4b), private:: tierstart, tier, kk1, kk2, currentindex, nnn, n, m, nnp, mp, w, wp
     integer(i4b), private:: dir1, dir2, dir3, dir4, pol
     logical, private:: permexists
@@ -155,9 +157,12 @@ module qme_hierarchy
     private::arend_bloch_equations_CW
     private::read_config_file
 
+    private::generate_noise
+    private::init_generate_noise
+
  	contains
 
- 	real(dp) function light_CF(t1,t2) result(res)
+ 	complex(dpc) function light_CF(t1,t2) result(res)
  	    real(dp), intent(in)    :: t1, t2
  	    real(dp) :: gamma
 
@@ -262,11 +267,24 @@ module qme_hierarchy
       character(len=128) :: buff
       integer(i4b)       :: b
 
+      complex(dp), allocatable        :: oo(:)
+
       call arend_init()
       call read_config_file()
       call arend_allocate()
       call arend_fill_parameters()
       call arend_init2()
+
+      !call init_generate_noise()
+
+      !ALLOCATE(oo, (NtimestepT1*NtimestepT1In))
+
+      !call  generate_noise(oo)
+
+      !do b=1,size(oo)
+      !  write(*,*) 'rrrr', dt*b,oo(b)
+      !end do
+      !stop
 
       !call arend_benchmark_E(1,2)
 
@@ -2094,6 +2112,97 @@ module qme_hierarchy
       rho3s = prhox3s
     end subroutine arend_propagate3s
 
+
+
+    subroutine init_generate_noise
+      integer(i4b) :: b, b2, nb, clock
+      complex(dpc), allocatable :: tmp(:,:)
+
+      !real(dp), dimension(3,3) :: AAA, UUU
+      !complex(dpc), dimension(2,2) :: BBB, VVV
+      !real(dp), dimension(1)   :: ran
+      !real(dp)                 :: sum, sum2
+
+      !AAA(1,1) =   4
+      !AAA(1,2) =  12
+      !AAA(1,3) = -16
+      !AAA(2,1) =  12
+      !AAA(2,2) =  37
+      !AAA(2,3) = -43
+      !AAA(3,1) = -16
+      !AAA(3,2) = -43
+      !AAA(3,3) =  98
+
+      !call cholesky(AAA,UUU)
+
+      !write(*,*)
+      !write(*,*) AAA
+      !write(*,*)
+      !write(*,*) UUU
+      !write(*,*)
+
+      !BBB(1,1) = 1
+      !BBB(1,2) = cmplx(0,1)/2
+      !BBB(2,1) = -cmplx(0,1)/2
+      !BBB(2,2) = 1
+
+      !call cholesky(BBB,VVV)
+
+      !write(*,*)
+      !write(*,*) BBB
+      !write(*,*)
+      !write(*,*) VVV
+      !write(*,*)
+
+      !sum = 0
+      !sum2 = 0
+      !do b=1,10000000
+      !  call random_Normal(ran)
+      !  !write(*,*) 'rrr', ran
+      !  sum = sum + ran(1)
+      !  sum2 = sum2 + ran(1)*ran(1)
+      !end do
+      !write (*,*)
+      !write (*,*) sum/10000000, sum2/10000000
+      !write (*,*)
+      !stop
+
+      CALL SYSTEM_CLOCK(COUNT=clock)
+      call init_random(clock)
+
+      nb = Ntimestept1*Ntimestept1in
+
+      ALLOCATE(CholeskyCF,(nb, nb))
+      ALLOCATE(tmp,(nb, nb))
+
+      CholeskyCF = 0.0_dp
+      tmp = 0.0_dp
+      do b=1, nb
+      do b2=1, nb
+        if(b >= b2) then
+          tmp(b,b2) = light_CF(dt*b,dt*b2)
+        else
+          tmp(b,b2) = conjg(light_CF(dt*b2,dt*b))
+        end if
+      end do
+      end do
+
+      call cholesky(tmp,CholeskyCF)
+
+      DEALLOCATE(tmp)
+
+    end subroutine init_generate_noise
+
+    subroutine generate_noise(out)
+      complex(dpc), intent(out) :: out(:)
+
+      real(dp)     :: oo(size(out))
+      integer(i4b) :: b
+
+      call random_Normal(oo)
+
+      out = matmul(CholeskyCF,oo)
+    end subroutine generate_noise
 
 
 

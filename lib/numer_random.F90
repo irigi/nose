@@ -71,7 +71,7 @@ module numer_random
 		module procedure set_seed
 	end interface random_set_seed
 	interface init_random
-		module procedure init, init_from_file, init_scratch
+		module procedure init, init2, init_from_file, init_scratch
 	end interface init_random
 	interface clean_random
 		module procedure clean, clean_into_file
@@ -168,6 +168,22 @@ contains
 		call print_log_message("... random module done.", 8)
 
 	end subroutine init
+
+    subroutine init2(se)
+        integer, intent(in) :: se
+        integer, allocatable :: seed(:)
+
+        call print_log_message("Initialization of random module", 8)
+
+        allocate(seed(seed_size()))
+        seed(1) = se
+
+        call set_seed(seed)
+        deallocate(seed)
+
+        call print_log_message("... random module done.", 8)
+
+    end subroutine init2
 
     !
     ! Initializing with default seed

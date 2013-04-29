@@ -70,6 +70,11 @@ module numer_matrix
         module procedure entropy_cmplx
     end interface
 
+    interface cholesky
+        module procedure cholesky_real
+        module procedure cholesky_cmplx
+    end interface
+
     public :: spec, spec2, inv, matrix_power, trace, matrix_exp
 
 	private :: eigsrt, eigconvention, iminloc
@@ -713,5 +718,50 @@ contains
     end do
 
   end function entropy_cmplx
+
+  subroutine cholesky_real(A,U)
+    real(dp), dimension(:,:), intent(in)          :: A
+    real(dp), dimension(:,:), intent(out)         :: U
+
+    complex(dp), dimension(size(A,1),size(A,1))      :: X, Y
+
+    X = A
+    Y = 0.0_dp
+
+    call cholesky_cmplx(X,Y)
+
+    U = real(Y)
+  end subroutine cholesky_real
+
+  subroutine cholesky_cmplx(A,U)
+    complex(dpc), dimension(:,:), intent(in)          :: A
+    complex(dpc), dimension(:,:), intent(out)         :: U
+
+    integer(i4b)                                  :: info, i, j, kd
+    complex(dpc), dimension(size(A,1),size(A,1))      :: X
+
+    kd = size(A,1)-1
+
+    X = 0.0_dp
+
+    do j=1,size(A,1)
+    do i=max(1,j-kd),j
+      X(kd+1+i-j,j) = A(i,j)
+    end do
+    end do
+
+    call DPBTRF( 'U', size(A,1), kd, X, size(A,1), info )
+
+    U = 0.0_dp
+
+    do j=1,size(A,1)
+    do i=max(1,j-kd),j
+      U(i,j) = X(kd+1+i-j,j)
+    end do
+    end do
+
+    write(*,*) info
+
+  end subroutine cholesky_cmplx
 
 end module numer_matrix
