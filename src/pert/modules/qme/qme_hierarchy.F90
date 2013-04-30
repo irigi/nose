@@ -98,8 +98,8 @@ module qme_hierarchy
     integer(i4b), allocatable, private :: perm(:,:)
     integer(i4b), allocatable, private :: permplus(:,:), permmin(:,:)
 
-    complex(dpc), allocatable, private :: CholeskyCF(:,:)
-    complex(dpc), allocatable, private :: oonoise(:)
+    real(dp), allocatable, private :: CholeskyCF(:,:)
+    real(dp), allocatable, private :: oonoise(:)
 
     integer(i4b), private:: tierstart, tier, kk1, kk2, currentindex, nnn, n, m, nnp, mp, w, wp
     integer(i4b), private:: dir1, dir2, dir3, dir4, pol
@@ -639,6 +639,7 @@ module qme_hierarchy
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
       integer(i4b) :: nnoise
+      logical      :: write_this_loop
 
 
       ALLOCATE(oonoise, (NtimestepT1*NtimestepT1In))
@@ -650,9 +651,6 @@ module qme_hierarchy
       noise_term = .true.
 
       call init_generate_noise()
-
-      write(*,*) 'RREERR'
-      call flush()
 
       ! XXXXXXXXXXXXXXXx
         dir1 = 1
@@ -667,6 +665,13 @@ module qme_hierarchy
 
     do nnoise=1, realizations
       write(*,*) 'realization', nnoise
+
+      if(mod(nnoise, 25) == 1) then
+        write_this_loop = .true.
+      else
+        write_this_loop = .false.
+      end if
+
       call generate_noise(oonoise)
 
       rhoC = 0.0_dp
@@ -678,7 +683,8 @@ module qme_hierarchy
         end do
       end do
 
-      call open_files()
+      if(write_this_loop) &
+        call open_files()
 
       do nnt1 = 1, Ntimestept1
         time1 = (nnt1-1)*Ntimestept1in*dt
@@ -702,6 +708,7 @@ module qme_hierarchy
 
                       rho_physical(:,:,nnt1) = rho_physical(:,:,nnt1) + rhotmp(:,:)
 
+                      if(write_this_loop) then
                       do s=1, Nsys
                       do s2=1, Nsys
                         write(s+Nsys*s2+10,*) time1, real(rho_physical(s,s2,nnt1)), aimag(rho_physical(s,s2,nnt1))
@@ -710,6 +717,7 @@ module qme_hierarchy
 
                       if(maxval(abs(rho_physical(:,:,nnt1))) > 1e-6 ) then
                         write(10,*) time1, entropy(rho_physical(:,:,nnt1)/trace(rho_physical(:,:,nnt1)) )
+                      end if
                       end if
 
 
@@ -720,9 +728,10 @@ module qme_hierarchy
         end do
       end do ! over nnt1
 
-      call close_files()
+      if(write_this_loop) &
+        call close_files()
 
-    end do
+    end do ! over nnoise
 
       DEALLOCATE(oonoise)
 
@@ -2240,7 +2249,7 @@ module qme_hierarchy
 
     subroutine init_generate_noise
       integer(i4b) :: b, b2, nb, clock
-      complex(dpc), allocatable :: tmp(:,:)
+      real(dp), allocatable :: tmp(:,:)
 
       !real(dp), dimension(3,3) :: AAA, UUU
       !complex(dpc), dimension(2,2) :: BBB, VVV
@@ -2317,7 +2326,7 @@ module qme_hierarchy
             !write(*,*)
             !write(*,*) real(CholeskyCF(1,:))
 
-      tmp = conjg(transpose(CholeskyCF))
+      tmp = transpose(CholeskyCF)
 
       CholeskyCF = tmp
 
@@ -2326,7 +2335,7 @@ module qme_hierarchy
     end subroutine init_generate_noise
 
     subroutine generate_noise(out)
-      complex(dpc), intent(out) :: out(:)
+      real(dpc), intent(out) :: out(:)
 
       real(dp)     :: oo(size(out))
       integer(i4b) :: b
