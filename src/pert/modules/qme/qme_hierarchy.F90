@@ -166,7 +166,7 @@ module qme_hierarchy
 
  	contains
 
- 	complex(dpc) function light_CF(t1,t2) result(res)
+ 	real(dp) function light_CF(t1,t2) result(res)
  	    real(dp), intent(in)    :: t1, t2
  	    real(dp) :: gamma
 
@@ -178,7 +178,7 @@ module qme_hierarchy
  	      else
  	        res = exp(-(t1 - t2)*(t1 - t2)*gamma*gamma)
  	      end if
- 	        res = res * exp(abs(t1 - t2)*central_frequency*cmplx(0,1))
+ 	        res = res * cos(abs(t1 - t2)*central_frequency)
  	    else
  	        res = 0.0_dp
  	    end if
@@ -2306,7 +2306,7 @@ module qme_hierarchy
         if(b >= b2) then
           tmp(b,b2) = light_CF(dt*b,dt*b2)
         else
-          tmp(b,b2) = conjg(light_CF(dt*b2,dt*b))
+          tmp(b,b2) = light_CF(dt*b2,dt*b)
         end if
       end do
       end do
