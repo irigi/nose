@@ -217,6 +217,12 @@ module qme_hierarchy
             write(*,*) buff, value
             global_relax_rate = value
 
+            ! for closed system, always set to zero (often mistake)
+            if(submethod1 == 'C') then
+              global_relax_rate = 0.0_dp
+              write(*,*) buff, 'changed to 0.00000'
+            end if
+
           elseif(trim(adjustl(buff)) == 'blochElectricFieldStrength') then
             write(*,*) buff, value
             bloch_strength = value
@@ -606,7 +612,7 @@ module qme_hierarchy
                       end if
 
                       if(normalize_trace) then
-                        rhotmp = rhotmp / (trace(rhotmp) + 1e-100_dp)
+                        rhotmp = rhotmp / (trace(rhotmp(1:,1:)) + 1e-100_dp)
                       end if
 
                       do s=1, Nsys
@@ -703,7 +709,7 @@ module qme_hierarchy
                       end if
 
                       if(normalize_trace) then
-                        rhotmp = rhotmp / (trace(rhotmp) + 1e-100_dp)
+                        rhotmp = rhotmp / (trace(rhotmp(1:,1:)) + 1e-100_dp)
                       end if
 
                       rho_physical(:,:,nnt1) = rho_physical(:,:,nnt1) + rhotmp(:,:)
