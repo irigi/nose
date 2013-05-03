@@ -629,7 +629,7 @@ module qme_hierarchy
 
         ! propagate t1
         do nin = 1, Ntimestept1in
-          call arend_propagateC(dt, time1)
+          call arend_propagateC(dt, time1 + (nin-1)*dt)
         end do
       end do ! over nnt1
 
