@@ -672,7 +672,7 @@ module qme_hierarchy
     do nnoise=1, realizations
       write(*,*) 'realization', nnoise
 
-      if(mod(nnoise, 25) == 1) then
+      if(mod(nnoise, 250) == 1) then
         write_this_loop = .true.
       else
         write_this_loop = .false.
