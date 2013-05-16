@@ -33,6 +33,8 @@ module resources
 	character(len=50), parameter :: NOSE_RDM_B11_CONJG = "conjg_dens_exc_block" 	! ""
 	character(len=50), parameter :: NOSE_RDM_B12_CONJG = "conjg_dens_2_coh" 		! ""
 
+	character(len=50), parameter :: NOSE_RDM_EVOPS = "evops"
+
 
 	! regularization constant / Tmax
 	double precision, parameter	:: NOSE_QME_NZ_REG_TIME_PER_TMAX = 0.250_dp

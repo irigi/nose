@@ -966,8 +966,10 @@ contains
 			if (resources_output_contains(NOSE_RDM_B01_CONJG)) then
 				call write_time_evolutions('O',.false.,.true.)
 			endif
-			call write_evolution_operators('O')
-			call write_redfield_tensor('O')
+			if (resources_output_contains(NOSE_RDM_EVOPS)) then
+			    call write_evolution_operators('O')
+			    call write_redfield_tensor('O')
+			endif
 		else
 			call print_log_message("    calculation of vibrations",5)
 		end if
