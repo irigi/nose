@@ -58,12 +58,14 @@ module qme_hierarchy
     integer(i4b), private:: Ntimestept3in = 0 ! number of time steps during t3 in inner loop
 
     real(dp), private :: central_frequency = 0
+    real(dp), private :: radiation_temperature = 5500
     real(dp), private :: max_light_time    = 1e9
     real(dp), private :: global_relax_rate = 0
     real(dp), private :: bloch_strength    = 0
     logical, private  :: gaussian_pulse    = .false.
     logical, private  :: normalize_trace   = .false.
     logical, private  :: bloch_term        = .false.
+    logical, private  :: light_hierarchy   = .false.
     logical, private  :: noise_term        = .false.
     integer(i4b)      :: realizations      = 0
 
@@ -141,6 +143,7 @@ module qme_hierarchy
     private::arend_fill_parameters
     private::arend_init2
     private::arend_benchmark_E
+    private::arend_light_hierarchy
 
     private::arend_initmult1
     private::arend_initmult2
@@ -197,7 +200,6 @@ module qme_hierarchy
 
         tmax = 6
 
-
         do while(i == 0)
           read(32, *, iostat=i) buff, value
 
@@ -227,6 +229,10 @@ module qme_hierarchy
             write(*,*) buff, value
             bloch_strength = value
 
+          elseif(trim(adjustl(buff)) == 'radiationTemperature') then
+            write(*,*) buff, value
+            radiation_temperature = value
+
           elseif(trim(adjustl(buff)) == 'gaussianPulse') then
             write(*,*) buff, int(value)
             if(int(value) == 1) then
@@ -251,6 +257,14 @@ module qme_hierarchy
               bloch_term = .false.
             end if
 
+          elseif(trim(adjustl(buff)) == 'lightHierarchy') then
+            write(*,*) buff, int(value)
+            if(int(value) == 1) then
+              light_hierarchy = .true.
+            else
+              light_hierarchy = .false.
+            end if
+
           elseif(trim(adjustl(buff)) == 'noiseTerm') then
             write(*,*) buff, int(value)
             if(int(value) == 1) then
@@ -267,6 +281,8 @@ module qme_hierarchy
             write(*,*) 'unrecognised:', buff, value
           end if
         end do
+
+        close(32)
 
         return
 
@@ -289,8 +305,8 @@ module qme_hierarchy
       character(len=128) :: buff
       integer(i4b)       :: b
 
-      call arend_init()
       call read_config_file()
+      call arend_init()
       call arend_allocate()
       call arend_fill_parameters()
       call arend_init2()
@@ -309,6 +325,8 @@ module qme_hierarchy
         call arend_bloch_equations_CW(submethod1)
       elseif(noise_term) then
         call arend_bloch_equations_noise(submethod1)
+      elseif(light_hierarchy) then
+        call arend_light_hierarchy(submethod1)
       else
         call arend_mancal_valkunas_quantum_light2(submethod1)
       end if
@@ -637,6 +655,90 @@ module qme_hierarchy
 
     end subroutine arend_bloch_equations_CW
 
+    subroutine arend_light_hierarchy(type)
+      character, intent(in)  :: type
+      character(len=128)     :: buff, buff2
+      complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
+      complex(dpc), dimension(Nhier+1, Nsys, Nsys)     :: rhotmp2
+      real(dp)     :: time1, time2, time
+      integer(i4b) :: aa,bb
+
+      call arend_initmult1()
+      call arend_initmult2()
+      light_hierarchy = .true.
+
+      ! XXXXXXXXXXXXXXXx
+        dir1 = 1
+        dir2 = 1
+        dir3 = 1
+        dir4 = 1
+      ! XXXXXXXXXXXXXXXx
+
+      write(*,*) 'mu_x =',mu(:,1)
+      write(*,*) 'mu_y =',mu(:,2)
+      write(*,*) 'mu_z =',mu(:,3)
+
+      do aa = 1, Nsys
+      do bb = 1, Nsys
+        write(*,*) 'VV',V(aa,:,bb)
+      end do
+      write(*,*)
+      end do
+
+      rho2 = 0.0_dp
+
+      ! Initial condition -- ground state
+      do nnn = 1, 1!Nhier
+        rho2(nnn, Nsys, Nsys) = 1
+      end do
+
+      call open_files()
+
+      do nnt1 = 1, Ntimestept1
+        time1 = (nnt1-1)*Ntimestept1in*dt
+
+        write(*,*) '   nnt1 = ', nnt1
+        write(*,*) rho2(1, 1, :)
+        write(*,*) rho2(1, 2, :)
+        write(*,*) rho2(1, Nsys, :)
+        call flush()
+
+                  ! print outcome
+                      rhotmp(:,:) = rho2(1,:,:) !+ transpose(conjg(rho_physical(:,:,nnt)))
+
+                      if(exciton_basis) then
+                        call operator_to_exc(rhotmp(1:(Nsys-1),1:(Nsys-1)),'E')
+                        !call operator_to_exc(rhotmp(0,1:),'O')
+                        !call operator_to_exc(rhotmp(1:,0),'O')
+                      end if
+
+                      if(normalize_trace) then
+                        rhotmp = rhotmp / (trace(rhotmp(1:(Nsys-1),1:(Nsys-1))) + 1e-100_dp)
+                      end if
+
+                      do s=1, Nsys-1
+                      do s2=1, Nsys-1
+                        write(s+Nsys*s2+10,*) time1, real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
+                      end do
+                      end do
+
+                      if(maxval(abs(rhotmp(1:(Nsys-1),1:(Nsys-1)))) > 1e-6 ) then
+                        write(10,*) time1, entropy(rhotmp(1:(Nsys-1),1:(Nsys-1))/trace(rhotmp(1:(Nsys-1),1:(Nsys-1))) )
+                      end if
+
+
+
+        ! propagate t1
+        do nin = 1, Ntimestept1in
+          call arend_propagate2(dt)
+        end do
+      end do ! over nnt1
+
+      call close_files()
+
+    end subroutine arend_light_hierarchy
+
+
     subroutine arend_bloch_equations_noise(type)
       character, intent(in)  :: type
       character(len=128)     :: buff, buff2
@@ -933,7 +1035,11 @@ module qme_hierarchy
     subroutine arend_init()
       character(len=256) :: buff
 
-      Nsys = N1_from_type('E')
+      if(light_hierarchy) then ! include ground state into system
+        Nsys = N1_from_type('E') + 1
+      else
+        Nsys = N1_from_type('E')
+      end if
       Nind = Nsys
 
       do tt = 1, tmax
@@ -1128,14 +1234,22 @@ module qme_hierarchy
 
       ! parameters for system-bath coupling
       do s = 1, Nsys
-        lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
-        LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
-        beta(s) = 1/kB_intK/temp
-        Dlong(s) = 1.0_dp
-        Dtrans(s) = 0.0_dp
-
-        if(submethod1 == 'C') then
+        if(s == Nsys .and. light_hierarchy) then
+          lambda(s) = bloch_strength
+          LLambda(s) = 1.0/tau_of_projector
+          beta(s) = 1/kB_intK/radiation_temperature
           Dlong(s) = 0.0_dp
+          Dtrans(s) = 0.0_dp
+        else
+          lambda(s) = igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(1,1)
+          LLambda(s) = 1/igofts(iblocks(1,1)%sblock%gindex(s))%goft%params(2,1)
+          beta(s) = 1/kB_intK/temp
+          Dlong(s) = 1.0_dp
+          Dtrans(s) = 0.0_dp
+
+          if(submethod1 == 'C') then
+            Dlong(s) = 0.0_dp
+          end if
         end if
 
         write(buff,*) ';lambda  ', lambda(s)*Energy_internal_to_cm
@@ -1155,10 +1269,16 @@ module qme_hierarchy
       HS = 0.0_dp
       do s=1, Nsys
       do s2=1, Nsys
-        if(s == s2) then
-          HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
+        if(max(s,s2) == Nsys .and. light_hierarchy) then
+          if(s == s2) then
+            HS(s,s) = - rwa
+          end if
         else
-          HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
+          if(s == s2) then
+            HS(s,s) = iblocks(1,1)%sblock%en(s) - rwa
+          else
+            HS(s,s2) = iblocks(1,1)%sblock%J(s,s2)
+          end if
         end if
       end do
       end do
@@ -1166,6 +1286,10 @@ module qme_hierarchy
       ! transition dipoles, (Hilbert space index, xyz-index)
       mu = 0.0_dp
       do s=1, Nsys
+        if(light_hierarchy .and. s == Nsys) then
+          cycle
+        end if
+
           mu(s,1) = current_s_block%dx(s,1)
           mu(s,2) = current_s_block%dy(s,1)
           mu(s,3) = current_s_block%dz(s,1)
@@ -1176,44 +1300,53 @@ module qme_hierarchy
         V(s,s,s) = dcmplx(Dlong(s))
       end do
 
-      ! 2-quantum Hamiltonian and system-bath coupling operators
-      do n = 1, Nsys
-        do m = (n+1), Nsys
-          w = (n-1)*Nsys + m - (n*(n+1))/2
-
-          do nnp = 1, Nsys
-            do mp = (nnp+1), Nsys
-              wp = (nnp-1)*Nsys + mp - (nnp*(nnp+1))/2
-
-          if (n == nnp) then
-                 HS2(w, wp) = HS2(w, wp) + HS(m, mp)
-                 do s = 1, Nsys
-               V2(s, w, wp) = V2(s, w, wp) + V(s, m, mp)
-                 end do
-              end if
-          if (n == mp) then
-                 HS2(w, wp) = HS2(w, wp) + HS(m, nnp)
-                 do s = 1, Nsys
-               V2(s, w, wp) = V2(s, w, wp) + V(s, m, nnp)
-                 end do
-              end if
-          if (m == nnp) then
-                 HS2(w, wp) = HS2(w, wp) + HS(n, mp)
-                 do s = 1, Nsys
-               V2(s, w, wp) = V2(s, w, wp) + V(s, n, mp)
-                 end do
-              end if
-          if (m == mp) then
-                 HS2(w, wp) = HS2(w, wp) + HS(n, nnp)
-                 do s = 1, Nsys
-               V2(s, w, wp) = V2(s, w, wp) + V(s, n, nnp)
-                 end do
-              end if
-
-            end do
-           end do
+      if(light_hierarchy) then
+        do s=1, Nsys-1
+        do s2=1, Nsys-1
+          V(Nsys,s,Nsys) = mu(s,1)
+          V(Nsys,Nsys,s) = mu(s,1)
         end do
-      end do
+        end do
+      end if
+
+!      ! 2-quantum Hamiltonian and system-bath coupling operators
+!      do n = 1, Nsys
+!        do m = (n+1), Nsys
+!          w = (n-1)*Nsys + m - (n*(n+1))/2
+!
+!          do nnp = 1, Nsys
+!            do mp = (nnp+1), Nsys
+!              wp = (nnp-1)*Nsys + mp - (nnp*(nnp+1))/2
+!
+!          if (n == nnp) then
+!                 HS2(w, wp) = HS2(w, wp) + HS(m, mp)
+!                 do s = 1, Nsys
+!               V2(s, w, wp) = V2(s, w, wp) + V(s, m, mp)
+!                 end do
+!              end if
+!          if (n == mp) then
+!                 HS2(w, wp) = HS2(w, wp) + HS(m, nnp)
+!                 do s = 1, Nsys
+!               V2(s, w, wp) = V2(s, w, wp) + V(s, m, nnp)
+!                 end do
+!              end if
+!          if (m == nnp) then
+!                 HS2(w, wp) = HS2(w, wp) + HS(n, mp)
+!                 do s = 1, Nsys
+!               V2(s, w, wp) = V2(s, w, wp) + V(s, n, mp)
+!                 end do
+!              end if
+!          if (m == mp) then
+!                 HS2(w, wp) = HS2(w, wp) + HS(n, nnp)
+!                 do s = 1, Nsys
+!               V2(s, w, wp) = V2(s, w, wp) + V(s, n, nnp)
+!                 end do
+!              end if
+!
+!            end do
+!           end do
+!        end do
+!      end do
 
     end subroutine arend_fill_parameters
 
@@ -2045,7 +2178,7 @@ module qme_hierarchy
 
     subroutine arend_Lmult2 (tt, rhoin, result)
       complex(dpc), intent(in)  :: rhoin(:,:,:)
-      real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:,:)
       integer:: n,j, nnp
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
@@ -2071,7 +2204,7 @@ module qme_hierarchy
       real(dp), intent(in) :: dt
 
       real(dp) :: t
-      t = dt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
+      t = dt ! this is a dummy parameter to satisfy ode_rk4 function template
 
     !  !  second order
     !  call arend_Lmult2(t, rho2, prhox2)
