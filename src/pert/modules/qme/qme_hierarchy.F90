@@ -219,11 +219,11 @@ module qme_hierarchy
             write(*,*) buff, value
             global_relax_rate = value
 
-            ! for closed system, always set to zero (often mistake)
-            if(submethod1 == 'C') then
-              global_relax_rate = 0.0_dp
-              write(*,*) buff, 'changed to 0.00000'
-            end if
+!            ! for closed system, always set to zero (often mistake)
+!            if(submethod1 == 'C') then
+!              global_relax_rate = 0.0_dp
+!              write(*,*) buff, 'changed to 0.00000'
+!            end if
 
           elseif(trim(adjustl(buff)) == 'blochElectricFieldStrength') then
             write(*,*) buff, value
@@ -2196,6 +2196,15 @@ module qme_hierarchy
           result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),:,:))
           result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j),:,:), opMinRight2(n,j,:,:))
         end do
+
+      if(light_hierarchy) then
+        ! relaxation
+        result(n,:(Nsys-1),:(Nsys-1)) = result(n,:(Nsys-1),:(Nsys-1)) - global_relax_rate * rhoin(n,:(Nsys-1),:(Nsys-1))
+
+        do s=1, Nsys-1
+          result(n,Nsys,Nsys) = result(n,Nsys,Nsys) + global_relax_rate * rhoin(n,s,s)
+        end do
+      end if
 
       end do
     end subroutine arend_Lmult2
