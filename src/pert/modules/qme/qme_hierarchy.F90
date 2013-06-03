@@ -1235,9 +1235,9 @@ module qme_hierarchy
       ! parameters for system-bath coupling
       do s = 1, Nsys
         if(s == Nsys .and. light_hierarchy) then
-          lambda(s) = bloch_strength
           LLambda(s) = 1.0/tau_of_projector
           beta(s) = 1/kB_intK/radiation_temperature
+          lambda(s) = bloch_strength*bloch_strength*beta(s)
           Dlong(s) = 0.0_dp
           Dtrans(s) = 0.0_dp
         else
