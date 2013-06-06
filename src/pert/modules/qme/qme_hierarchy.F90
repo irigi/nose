@@ -64,6 +64,7 @@ module qme_hierarchy
     real(dp), private :: bloch_strength    = 0
     logical, private  :: gaussian_pulse    = .false.
     logical, private  :: normalize_trace   = .false.
+    logical, private  :: complex_CF        = .false.
     logical, private  :: bloch_term        = .false.
     logical, private  :: light_hierarchy   = .false.
     logical, private  :: noise_term        = .false.
@@ -169,17 +170,22 @@ module qme_hierarchy
 
  	contains
 
- 	real(dp) function light_CF(t1,t2) result(res)
+ 	complex(dpc) function light_CF(t1,t2) result(res)
  	    real(dp), intent(in)    :: t1, t2
- 	    real(dp) :: gamma
+ 	    real(dp) :: gamma, beta, TTT
 
  	    gamma = 1/tau_of_projector
+ 	    beta = 1/kB_intK/radiation_temperature
+ 	    TTT = t1 - t2
 
         if(t1 + 1e-6 > t2 .and. t1 >= -1e-6) then
-          if(.not. gaussian_pulse) then
- 	        res = exp(-abs(t1 - t2)*gamma)
- 	      else
+          if(gaussian_pulse) then
  	        res = exp(-(t1 - t2)*(t1 - t2)*gamma*gamma)
+ 	      elseif(complex_CF) then
+ 	        central_frequency = 0
+ 	        res = exp(-abs(TTT)*gamma)*(1 + sign(1.0_dp,TTT)*cmplx(0,1) * tan(gamma * beta / 2) )
+ 	      else
+ 	        res = exp(-abs(t1 - t2)*gamma)
  	      end if
  	        res = res * cos(abs(t1 - t2)*central_frequency)
  	    else
@@ -239,6 +245,14 @@ module qme_hierarchy
               gaussian_pulse = .true.
             else
               gaussian_pulse = .false.
+            end if
+
+          elseif(trim(adjustl(buff)) == 'complexCF') then
+            write(*,*) buff, int(value)
+            if(int(value) == 1) then
+              complex_CF = .true.
+            else
+              complex_CF = .false.
             end if
 
           elseif(trim(adjustl(buff)) == 'normalizeTrace') then
@@ -2461,9 +2475,9 @@ module qme_hierarchy
       do b=1, nb
       do b2=1, nb
         if(b >= b2) then
-          tmp(b,b2) = light_CF(dt*b,dt*b2)
+          tmp(b,b2) = real(light_CF(dt*b,dt*b2))
         else
-          tmp(b,b2) = light_CF(dt*b2,dt*b)
+          tmp(b,b2) = real(light_CF(dt*b2,dt*b))
         end if
       end do
       end do
