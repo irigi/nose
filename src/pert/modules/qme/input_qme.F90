@@ -223,23 +223,7 @@ contains
         call print_log_message(trim(cbuff),5)
 
 
-        ! extendedGridExtent
-		if (nis_has_next()) then
-            call nis_next(err)
-            call print_error_message(err,"input_qme")
-            Nte = nis_get_integer()
 
-            ! resolve consequences
-            grid_Nt = max(grid_Nt,Nte*gt(1))
-			deallocate(grid_t)
-			allocate(grid_t(grid_Nt))                                 ! MARK for deallocation
-			do i = 1, grid_Nt
-            	grid_t(i) = real((i-1),dp)*dt
-			end do
-
-        else
-            call print_error_message(-1,"Missing record at NIS at position input_qme")
-        end if
 
 
 
@@ -458,6 +442,32 @@ contains
 			write(*,*) "Error: method not implemented, use PT2-RC, PT2-SBs[sf][mMqu] or PT2-SB[sf][mMqu]."
             stop
 
+        end if
+
+
+
+
+        ! extendedGridExtent
+        if (nis_has_next()) then
+            call nis_next(err)
+            call print_error_message(err,"input_qme")
+            Nte = nis_get_integer()
+
+            ! resolve consequences
+            grid_Nt = max(grid_Nt,Nte*gt(1))
+
+            if(use_module_hierarchy) then
+                grid_Nt = Nte
+            end if
+
+            deallocate(grid_t)
+            allocate(grid_t(grid_Nt))                                 ! MARK for deallocation
+            do i = 1, grid_Nt
+                grid_t(i) = real((i-1),dp)*dt
+            end do
+
+        else
+            call print_error_message(-1,"Missing record at NIS at position input_qme")
         end if
 
 
