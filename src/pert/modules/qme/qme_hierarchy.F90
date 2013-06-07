@@ -48,7 +48,8 @@ module qme_hierarchy
 
 
 
-    integer(i4b), private:: Nsys ! system size
+    integer(i4b), private:: Nsys     ! system size
+    integer(i4b), private:: Mmat = 0 ! Max included Matsubara frequency
     integer(i4b), private:: tmax = 6 ! depth of the hierarchy
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
     integer(i4b), private:: Ntimestept1in = 0 ! number of time steps during t1 in inner loop
@@ -83,8 +84,6 @@ module qme_hierarchy
     complex(dpc), allocatable, private:: V(:, :,:), V2(:,:,:), mu(:,:)
     complex(dpc), allocatable, private:: opLeft2(:,:,:), opRight2(:,:,:), opLRLeft2(:,:,:,:), opLRRight2(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft2(:,:,:,:), opPlusRight2(:,:,:,:), opMinLeft2(:,:,:,:), opMinRight2(:,:,:,:)
-    !complex(dpc), allocatable, private:: opLeftC(:,:,:), opRightC(:,:,:), opLRLeftC(:,:,:,:), opLRRightC(:,:,:,:)
-    !complex(dpc), allocatable, private:: opPlusLeftC(:,:,:,:), opPlusRightC(:,:,:,:), opMinLeftC(:,:,:,:), opMinRightC(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft3(:,:,:), opRight3(:,:,:), opLRLeft3(:,:,:,:), opLRRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opPlusLeft3(:,:,:,:), opPlusRight3(:,:,:,:), opMinLeft3(:,:,:,:), opMinRight3(:,:,:,:)
     complex(dpc), allocatable, private:: opLeft1(:,:,:), opPlusLeft1(:,:,:,:), opMinLeft1(:,:,:,:)
@@ -148,6 +147,11 @@ module qme_hierarchy
     private::arend_initmult1
     private::arend_initmult2
     private::arend_initmult3
+
+    private::arend_Lmult1
+    private::arend_Lmult2
+    private::arend_Lmult2_LowTemp
+    private::arend_Lmult3
 
     private::arend_propagate1reph
     private::arend_propagate1nonreph
@@ -214,6 +218,10 @@ module qme_hierarchy
           elseif(trim(adjustl(buff)) == 'centralFrequency') then
             write(*,*) buff, value/Energy_internal_to_cm, value, 'in cm'
             central_frequency = value/Energy_internal_to_cm
+
+          elseif(trim(adjustl(buff)) == 'matsubaraMax') then
+            write(*,*) buff, value
+            Mmat = value
 
           elseif(trim(adjustl(buff)) == 'globalRelaxRate') then
             write(*,*) buff, value
@@ -468,118 +476,6 @@ module qme_hierarchy
 
     end subroutine arend_mancal_valkunas_quantum_light2
 
-
-!    subroutine arend_mancal_valkunas_quantum_light(type)
-!      character, intent(in)  :: type
-!      character(len=128)     :: buff, buff2
-!      complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
-!      complex(dpc), dimension(Nsys, Nsys, Ntimestept2) :: rho_physical
-!      integer(i4b) :: nnt
-!
-!      call arend_initmult1()
-!      call arend_initmult2()
-!      rho_physical = 0.0_dp
-!
-!      ! XXXXXXXXXXXXXXXx
-!        dir1 = 1
-!        dir2 = 1
-!        dir3 = 1
-!        dir4 = 1
-!      ! XXXXXXXXXXXXXXXx
-!
-!      write(*,*) 'mu_x =',mu(:,1)
-!      write(*,*) 'mu_y =',mu(:,2)
-!      write(*,*) 'mu_z =',mu(:,3)
-!
-!      ! Initial condition
-!      do nnn = 1, 1!Nhier
-!        do s=1, Nsys
-!          rho1(nnn, s) = mu(s, dir1)
-!        end do
-!      end do
-!
-!      do nnt1 = 1, Ntimestept1
-!        if(submethod1 == 'I' .and. nnt1 > 1) then
-!          exit
-!        end if
-!
-!        ! initialize t2
-!        rho2 = 0.0_dp
-!        do nnn = 1, 1!Nhier
-!          do s = 1, Nsys
-!            do s2 = 1, Nsys
-!              ! check the sign of rwa here
-!              rho2(nnn, s, s2) = rho2(nnn, s, s2) + mu(s, dir2) * rho1(nnn, s2)* exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) &
-!                                                  + conjg(mu(s2, dir2) * rho1(nnn, s) * exp( -nnt1*Ntimestept1in*dt*rwa*cmplx(0,1) ) )
-!            end do
-!          end do
-!        end do
-!
-!        !write(*,*) '   nnt1 = ', nnt1
-!        call flush()
-!
-!        write(*,*) rho1(1, :)
-!
-!        ! propagate t2
-!        do nnt2 = 1, Ntimestept2-nnt1
-!          do s = 1, Nsys
-!          do s2 = 1, Nsys
-!
-!          if(submethod2 == 'D') then
-!            nnt = nnt1+nnt2-1
-!            rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
-!          else
-!            do nnt = max(nnt2+nnt1-1, 1), Ntimestept2
-!              rho_physical(s,s2,nnt) = rho_physical(s,s2,nnt) + rho2(1,s,s2)*light_CF((nnt-nnt2)*dt*Ntimestept1in, (nnt-nnt1-nnt2+1)*dt*Ntimestept1in)*dt*Ntimestept1in
-!            end do
-!          end if
-!
-!          end do
-!          end do
-!
-!          !! XXXXXXXXXX
-!          !rho_physical(:,:,nnt2) = rho2(1,:,:)
-!
-!          !if(real(rho2(1,1,1)) < 0) then
-!          !  write(*,*) nnt1, nnt2, rho2(1,1,1), abs(rho1(1, :))
-!          !end if
-!
-!          do nin = 1, Ntimestept2in
-!            call arend_propagate2(dt)
-!          end do
-!        end do
-!
-!                  if(mod(nnt1,10) == 1 .or. Ntimestept1 == nnt1) then
-!                  call open_files()
-!
-!                  ! print outcome
-!                  do nnt=1,Ntimestept2
-!                      rhotmp(:,:) = rho_physical(:,:,nnt)! + transpose(conjg(rho_physical(:,:,nnt)))
-!                      if(exciton_basis) then
-!                        call operator_to_exc(rhotmp(:,:),'E')
-!                      end if
-!                      do s=1, Nsys
-!                      do s2=1, Nsys
-!                        write(s+Nsys*s2+10,*) dt*Ntimestept2in*(nnt-1), real(rhotmp(s,s2)), aimag(rhotmp(s,s2))
-!                      end do
-!                      end do
-!
-!                      if(maxval(abs(rhotmp)) > 1e-6 ) then
-!                        write(10,*) dt*Ntimestept2in*(nnt-1), entropy(rhotmp/trace(rhotmp))
-!                      end if
-!                  end do
-!
-!                  call close_files()
-!                  end if
-!
-!        ! propagate t1
-!        do nin = 1, Ntimestept1in
-!          call arend_propagate1reph(dt)
-!        end do
-!      end do ! over nnt1
-!
-!    end subroutine arend_mancal_valkunas_quantum_light
-
     subroutine arend_bloch_equations_CW(type)
       character, intent(in)  :: type
       character(len=128)     :: buff, buff2
@@ -663,8 +559,8 @@ module qme_hierarchy
       real(dp)     :: time1, time2, time
       integer(i4b) :: aa,bb
 
-      call arend_initmult1()
-      call arend_initmult2()
+      !call arend_initmult1_lowtemp()
+      !call arend_initmult2_lowtemp()
       light_hierarchy = .true.
 
       ! XXXXXXXXXXXXXXXx
@@ -730,7 +626,7 @@ module qme_hierarchy
 
         ! propagate t1
         do nin = 1, Ntimestept1in
-          call arend_propagate2(dt)
+          call arend_propagate2_lowTemp(dt)
         end do
       end do ! over nnt1
 
@@ -1040,7 +936,7 @@ module qme_hierarchy
       else
         Nsys = N1_from_type('E')
       end if
-      Nind = Nsys
+      Nind = Nsys * (Mmat+1)
 
       do tt = 1, tmax
         Nhier = Nhier + numpermt(tt)
@@ -1394,8 +1290,8 @@ module qme_hierarchy
       ! cache plus and minus
       do nnn = 1, Nhier
         do s = 1, Nsys
-          permplus(nnn, s) = nplus(nnn, s)
-          permmin(nnn, s) = nmin(nnn, s)
+          permplus(nnn, s) = nplus(nnn, s, 0)
+          permmin(nnn, s) = nmin(nnn, s, 0)
         end do
       end do
 
@@ -1866,12 +1762,14 @@ module qme_hierarchy
 
     end function permindex
 
-    function nplus (nin, jin)
-      integer(i4b), intent(in):: nin, jin
-      integer(i4b):: nplus
+    function nplus (nin, jin, mmin)
+      integer(i4b), intent(in):: nin, jin, mmin
+      integer(i4b):: nplus, ind
+
+      ind = (jin-1) * (Mmat+1) + mmin + 1
 
       currentperm = perm(nin, :)
-      currentperm(jin) = currentperm(jin) + 1
+      currentperm(ind) = currentperm(ind) + 1
 
       nplus = permindex(currentperm)
 
@@ -1882,15 +1780,17 @@ module qme_hierarchy
     end function nplus
 
 
-    function nmin (nin, jin)
-      integer(i4b), intent(in):: nin, jin
-      integer(i4b):: nmin
+    function nmin (nin, jin, mmin)
+      integer(i4b), intent(in):: nin, jin, mmin
+      integer(i4b):: nmin, ind
+
+      ind = (jin-1) * (Mmat+1) + mmin + 1
 
       currentperm = perm(nin, :)
 
       nmin = -1
-      if (currentperm(jin) > 0) then
-        currentperm(jin) = currentperm(jin) - 1
+      if (currentperm(ind) > 0) then
+        currentperm(ind) = currentperm(ind) - 1
         nmin = permindex(currentperm)
       end if
 
@@ -1919,7 +1819,17 @@ module qme_hierarchy
 
     end function cconst
 
+    function cconst_lowTemp(j, m)
+      integer, intent(in):: j, m
+      complex(dpc):: cconst_lowTemp
 
+      if (m == 0) then
+        cconst_lowTemp = LLambda(j) * lambda(j)*(1/tan(beta(j)*LLambda(j)/2.0) - dcmplx(0.0,1.0))
+      else
+        cconst_lowTemp = (4*lambda(j)*LLambda(j)/beta(j)) * nu(j,m)/(nu(j,m)**2-LLambda(j)**2)
+      end if
+
+    end function cconst_lowTemp
 
     subroutine arend_initmult1
       ! initialize the propagator for a coherence |1><0|
@@ -2227,6 +2137,65 @@ module qme_hierarchy
       rho2 = prhox2
     end subroutine arend_propagate2
 
+    subroutine arend_Lmult2_LowTemp (tt, rhoin, result)
+      complex(dpc), intent(in)  :: rhoin(:,:,:)
+      real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
+      complex(dpc), intent(out) :: result(:,:,:)
+      integer(i4b) :: n, j, nnp
+      complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
+      complex(dpc) :: musum, jsum
+
+      result(:,:,:) = 0
+
+      do n=1, Nhier
+        ! HS
+        result(n,:,:) = result(n,:,:) - iconst*MATMUL(HS, rhoin(n,:,:)) + iconst*MATMUL(rhoin(n,:,:), HS)
+        ! n nu
+        musum = 0
+        do j=1, Nsys
+          musum = musum + perm(n, (j-1)*(Mmat+1)+1) * LLambda(j)
+          do m=1, Mmat
+            musum = musum + perm(n, (j-1)*(Mmat+1)+m+1) * 2*pi*m/beta(j)
+          end do
+        end do
+        result(n,:,:) = result(n,:,:) - musum * rhoin(n,:,:)
+
+       do j=1, Nsys
+          jsum = 2*lambda(j) / (beta(j)*LLambda(j)) - lambda(j)/tan(beta(j)*LLambda(j)/2)
+          do m=1, Mmat
+            jsum = jsum - cconst_lowTemp(j, m) / nu(j, m)
+          end do
+          result(n,:,:) = result(n,:,:) - jsum * MATMUL(V(j,:,:), MATMUL(V(j,:,:), rhoin(n,:,:)))
+          result(n,:,:) = result(n,:,:) - jsum * MATMUL(rhoin(n,:,:), MATMUL(V(j,:,:), V(j,:,:)))
+          result(n,:,:) = result(n,:,:) + 2*jsum * MATMUL(V(j,:,:), MATMUL(rhoin(n,:,:), V(j,:,:)))
+       end do
+
+       do j=1, Nsys
+          do m=0, Mmat
+            result(n,:,:) = result(n,:,:) - iconst * MATMUL(V(j,:,:), rhoin(nplus(n, j, m), :, :))
+            result(n,:,:) = result(n,:,:) + iconst * MATMUL(rhoin(nplus(n, j, m), :, :), V(j,:,:))
+          end do
+       end do
+
+       do j=1, Nsys
+          do m=0, Mmat
+            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(nmin(n, j, m), :, :)) + MATMUL(rhoin(nmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
+          end do
+       end do
+      end do
+    end subroutine arend_Lmult2_LowTemp
+
+    subroutine arend_propagate2_LowTemp (dt)
+      real(dp), intent(in) :: dt
+
+      real(dp) :: t
+      t = dt ! this is a dummy parameter to satisfy ode_rk4 function template
+
+      call arend_Lmult2_LowTemp(t,rho2,prhodx2)
+      call ode_rk4(rho2,prhodx2,t,dt,prhox2,arend_Lmult2_LowTemp)
+      rho2 = prhox2
+    end subroutine arend_propagate2_LowTemp
+
     subroutine arend_LmultC (ttt, rhoin, result)
       complex(dpc), intent(in)  :: rhoin(:,0:,0:)
       real(dp), intent(in)      :: ttt ! time (fs)
@@ -2399,55 +2368,6 @@ module qme_hierarchy
       integer(i4b) :: b, b2, nb, clock
       real(dp), allocatable :: tmp(:,:)
 
-      !real(dp), dimension(3,3) :: AAA, UUU
-      !complex(dpc), dimension(2,2) :: BBB, VVV
-      !real(dp), dimension(1)   :: ran
-      !real(dp)                 :: sum, sum2
-
-      !AAA(1,1) =   4
-      !AAA(1,2) =  12
-      !AAA(1,3) = -16
-      !AAA(2,1) =  12
-      !AAA(2,2) =  37
-      !AAA(2,3) = -43
-      !AAA(3,1) = -16
-      !AAA(3,2) = -43
-      !AAA(3,3) =  98
-
-      !call cholesky(AAA,UUU)
-
-      !write(*,*)
-      !write(*,*) AAA
-      !write(*,*)
-      !write(*,*) UUU
-      !write(*,*)
-
-      !BBB(1,1) = 1
-      !BBB(1,2) = cmplx(0,1)/2
-      !BBB(2,1) = -cmplx(0,1)/2
-      !BBB(2,2) = 1
-
-      !call cholesky(BBB,VVV)
-
-      !write(*,*)
-      !write(*,*) BBB
-      !write(*,*)
-      !write(*,*) VVV
-      !write(*,*)
-
-      !sum = 0
-      !sum2 = 0
-      !do b=1,10000000
-      !  call random_Normal(ran)
-      !  !write(*,*) 'rrr', ran
-      !  sum = sum + ran(1)
-      !  sum2 = sum2 + ran(1)*ran(1)
-      !end do
-      !write (*,*)
-      !write (*,*) sum/10000000, sum2/10000000
-      !write (*,*)
-      !stop
-
       CALL SYSTEM_CLOCK(COUNT=clock)
       call init_random(clock)
 
@@ -2469,10 +2389,6 @@ module qme_hierarchy
       end do
 
       call cholesky(tmp,CholeskyCF)
-
-            !write(*,*) real(tmp(:5,:5))
-            !write(*,*)
-            !write(*,*) real(CholeskyCF(1,:))
 
       tmp = transpose(CholeskyCF)
 
