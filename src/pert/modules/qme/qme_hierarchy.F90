@@ -97,7 +97,7 @@ module qme_hierarchy
     integer(i4b), private :: tt, nin, s, s2, nnt1, nt1in, nnt3, nnt2, w1, w2
 
     integer(i4b), allocatable, private :: perm(:,:)
-    integer(i4b), allocatable, private :: permplus(:,:), permmin(:,:)
+    integer(i4b), allocatable, private :: permplus(:,:,:), permmin(:,:,:)
 
     real(dp), allocatable, private :: CholeskyCF(:,:)
     real(dp), allocatable, private :: oonoise(:)
@@ -1041,9 +1041,9 @@ module qme_hierarchy
       ALLOCATE(opMinLeft3,(Nhier, Nsys, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
       ALLOCATE(opMinRight3,(Nhier, Nsys, Nsys, Nsys))
 
-      ALLOCATE(permplus,(Nhier, Nsys))
+      ALLOCATE(permplus,(Nhier, Nsys, 0:Mmat))
 
-      ALLOCATE(permmin,(Nhier, Nsys))
+      ALLOCATE(permmin,(Nhier, Nsys, 0:Mmat))
 
       ALLOCATE(signal,(Ntimestept1, Ntimestept3))
       ALLOCATE(signalpar,(Ntimestept1, Ntimestept3))
@@ -1290,8 +1290,10 @@ module qme_hierarchy
       ! cache plus and minus
       do nnn = 1, Nhier
         do s = 1, Nsys
-          permplus(nnn, s) = nplus(nnn, s, 0)
-          permmin(nnn, s) = nmin(nnn, s, 0)
+          do s2 = 0, Mmat
+            permplus(nnn, s, s2) = nplus(nnn, s, s2)
+            permmin(nnn, s, s2) = nmin(nnn, s, s2)
+          end do
         end do
       end do
 
@@ -2023,8 +2025,8 @@ module qme_hierarchy
         result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
 
         do j=1, Nsys
-          result(n,:) = result(n,:) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),:))
-          result(n,:) = result(n,:) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),:))
+          result(n,:) = result(n,:) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j,0),:))
+          result(n,:) = result(n,:) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j,0),:))
         end do
 
       end do
@@ -2101,10 +2103,10 @@ module qme_hierarchy
 
         do j=1, Nsys
           result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,:,:)), opLRRight2(n,j,:,:))
-          result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),:,:))
-          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight2(n,j,:,:))
-          result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),:,:))
-          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j),:,:), opMinRight2(n,j,:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j,0),:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j,0),:,:), opPlusRight2(n,j,:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j,0),:,:))
+          result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j,0),:,:), opMinRight2(n,j,:,:))
         end do
 
       if(light_hierarchy) then
@@ -2172,14 +2174,14 @@ module qme_hierarchy
 
        do j=1, Nsys
           do m=0, Mmat
-            result(n,:,:) = result(n,:,:) - iconst * MATMUL(V(j,:,:), rhoin(nplus(n, j, m), :, :))
-            result(n,:,:) = result(n,:,:) + iconst * MATMUL(rhoin(nplus(n, j, m), :, :), V(j,:,:))
+            result(n,:,:) = result(n,:,:) - iconst * MATMUL(V(j,:,:), rhoin(permplus(n, j, m), :, :))
+            result(n,:,:) = result(n,:,:) + iconst * MATMUL(rhoin(permplus(n, j, m), :, :), V(j,:,:))
           end do
        end do
 
        do j=1, Nsys
           do m=0, Mmat
-            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(nmin(n, j, m), :, :)) + MATMUL(rhoin(nmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
+            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
           end do
        end do
       end do
@@ -2251,8 +2253,8 @@ module qme_hierarchy
         result(n,1:,0) = result(n,1:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
 
         do j=1, Nsys
-          result(n,1:,0) = result(n,1:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j),1:,0))
-          result(n,1:,0) = result(n,1:,0) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j),1:,0))
+          result(n,1:,0) = result(n,1:,0) + MATMUL(opPlusLeft1(n, j, :, :), rhoin(permplus(n,j,0),1:,0))
+          result(n,1:,0) = result(n,1:,0) + MATMUL(opMinLeft1(n,j,:,:), rhoin(permmin(n,j,0),1:,0))
         end do
 
 !!        ! conjugate part of Lmult1
@@ -2268,10 +2270,10 @@ module qme_hierarchy
 
         do j=1, Nsys
           result(n,1:,1:) = result(n,1:,1:) + MATMUL(MATMUL(opLRLeft2(n,j,:,:), rhoin(n,1:,1:)), opLRRight2(n,j,:,:))
-          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j),1:,1:))
-          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permplus(n,j),1:,1:), opPlusRight2(n,j,:,:))
-          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j),1:,1:))
-          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permmin(n,j),1:,1:), opMinRight2(n,j,:,:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opPlusLeft2(n,j, :,:), rhoin(permplus(n,j,0),1:,1:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permplus(n,j,0),1:,1:), opPlusRight2(n,j,:,:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(opMinLeft2(n,j, :,:), rhoin(permmin(n,j,0),1:,1:))
+          result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(permmin(n,j,0),1:,1:), opMinRight2(n,j,:,:))
         end do
 
         ! relaxation
@@ -2314,10 +2316,10 @@ module qme_hierarchy
 
       do j=1, Nsys
         result(n,:,:) = result(n,:,:) + MATMUL(MATMUL(opLRLeft3(n,j,:,:), rhoin(n,:,:)), opLRRight3(n,j,:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft3(n,j, :,:), rhoin(permplus(n,j),:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j),:,:), opPlusRight3(n,j,:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft3(n,j, :,:), rhoin(permmin(n,j),:,:))
-        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j),:,:), opMinRight3(n,j,:,:))
+        result(n,:,:) = result(n,:,:) + MATMUL(opPlusLeft3(n,j, :,:), rhoin(permplus(n,j,0),:,:))
+        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permplus(n,j,0),:,:), opPlusRight3(n,j,:,:))
+        result(n,:,:) = result(n,:,:) + MATMUL(opMinLeft3(n,j, :,:), rhoin(permmin(n,j,0),:,:))
+        result(n,:,:) = result(n,:,:) + MATMUL(rhoin(permmin(n,j,0),:,:), opMinRight3(n,j,:,:))
       end do
 
     end do
