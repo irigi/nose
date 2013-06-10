@@ -50,8 +50,8 @@ module qme_hierarchy
 
     integer(i4b), private:: Nsys     ! system size
     integer(i4b), private:: NSB      ! number of baths
-    integer(i4b), private:: Mmat = 0 ! Max included Matsubara frequency
     integer(i4b), private:: tmax = 6 ! depth of the hierarchy
+    integer(i4b), allocatable, private:: Mmat(:) ! Max included Matsubara frequency
     integer(i4b), private:: Ntimestept1   = 0 ! number of time steps during t1 in outer loop
     integer(i4b), private:: Ntimestept1in = 0 ! number of time steps during t1 in inner loop
     integer(i4b), private:: Ntimestept2   = 0 ! number of time steps during t2 in outer loop
@@ -70,6 +70,8 @@ module qme_hierarchy
     logical, private  :: light_hierarchy   = .false.
     logical, private  :: noise_term        = .false.
     integer(i4b)      :: realizations      = 0
+    integer(i4b)      :: phonon_matsubara  = 0
+    integer(i4b)      :: light_matsubara   = 0
 
     logical, parameter, private:: calculatereph = .true.
     logical, parameter, private:: calculatenonreph = .true.
@@ -220,9 +222,13 @@ module qme_hierarchy
             write(*,*) buff, value/Energy_internal_to_cm, value, 'in cm'
             central_frequency = value/Energy_internal_to_cm
 
-          elseif(trim(adjustl(buff)) == 'matsubaraMax') then
+          elseif(trim(adjustl(buff)) == 'matsubaraMaxLight') then
             write(*,*) buff, value
-            Mmat = value
+            light_matsubara = value
+
+          elseif(trim(adjustl(buff)) == 'matsubaraMaxPhonon') then
+            write(*,*) buff, value
+            phonon_matsubara = value
 
           elseif(trim(adjustl(buff)) == 'globalRelaxRate') then
             write(*,*) buff, value
@@ -924,6 +930,7 @@ module qme_hierarchy
 
     subroutine arend_init()
       character(len=256) :: buff
+      integer(i4b)       :: j
 
       if(light_hierarchy) then ! include ground state into system
         Nsys = N1_from_type('E') + 1
@@ -937,7 +944,18 @@ module qme_hierarchy
         NSB = Nsys
       end if
 
-      Nind = NSB * (Mmat+1)
+      ALLOCATE(Mmat,(NSB))
+
+      Mmat = 0
+      do j=1, NSB
+        Mmat(j) = phonon_matsubara
+      end do
+      Mmat(NSB) = light_matsubara
+
+      Nind = 0
+      do j=1, NSB
+        Nind = Nind + Mmat(j) + 1
+      end do
 
       do tt = 1, tmax
         Nhier = Nhier + numpermt(tt)
@@ -1042,9 +1060,9 @@ module qme_hierarchy
       ALLOCATE(opMinLeft3,(Nhier, NSB, (Nsys*(Nsys-1))/2, (Nsys*(Nsys-1))/2))
       ALLOCATE(opMinRight3,(Nhier, NSB, Nsys, Nsys))
 
-      ALLOCATE(permplus,(Nhier, NSB, 0:Mmat))
+      ALLOCATE(permplus,(Nhier, NSB, 0:maxval(Mmat)))
 
-      ALLOCATE(permmin,(Nhier, NSB, 0:Mmat))
+      ALLOCATE(permmin,(Nhier, NSB, 0:maxval(Mmat)))
 
       ALLOCATE(signal,(Ntimestept1, Ntimestept3))
       ALLOCATE(signalpar,(Ntimestept1, Ntimestept3))
@@ -1082,6 +1100,7 @@ module qme_hierarchy
 
       DEALLOCATE(V2)
 
+      DEALLOCATE(Mmat)
       DEALLOCATE(beta)
       DEALLOCATE(LLambda)
       DEALLOCATE(lambda)
@@ -1298,9 +1317,11 @@ module qme_hierarchy
       !write(*,*)
 
       ! cache plus and minus
+      permplus = 0
+      permmin = 0
       do nnn = 1, Nhier
         do s = 1, NSB
-          do s2 = 0, Mmat
+          do s2 = 0, Mmat(s)
             permplus(nnn, s, s2) = nplus(nnn, s, s2)
             permmin(nnn, s, s2) = nmin(nnn, s, s2)
           end do
@@ -1778,7 +1799,7 @@ module qme_hierarchy
       integer(i4b), intent(in):: nin, jin, mmin
       integer(i4b):: nplus, ind
 
-      ind = (jin-1) * (Mmat+1) + mmin + 1
+      ind = (jin-1) * (Mmat(jin)+1) + mmin + 1
 
       currentperm = perm(nin, :)
       currentperm(ind) = currentperm(ind) + 1
@@ -1796,7 +1817,7 @@ module qme_hierarchy
       integer(i4b), intent(in):: nin, jin, mmin
       integer(i4b):: nmin, ind
 
-      ind = (jin-1) * (Mmat+1) + mmin + 1
+      ind = (jin-1) * (Mmat(jin)+1) + mmin + 1
 
       currentperm = perm(nin, :)
 
@@ -2165,16 +2186,16 @@ module qme_hierarchy
         ! n nu
         musum = 0
         do j=1, NSB
-          musum = musum + perm(n, (j-1)*(Mmat+1)+1) * LLambda(j)
-          do m=1, Mmat
-            musum = musum + perm(n, (j-1)*(Mmat+1)+m+1) * 2*pi*m/beta(j)
+          musum = musum + perm(n, (j-1)*(Mmat(j)+1)+1) * LLambda(j)
+          do m=1, Mmat(j)
+            musum = musum + perm(n, (j-1)*(Mmat(j)+1)+m+1) * 2*pi*m/beta(j)
           end do
         end do
         result(n,:,:) = result(n,:,:) - musum * rhoin(n,:,:)
 
        do j=1, NSB
           jsum = 2*lambda(j) / (beta(j)*LLambda(j)) - lambda(j)/tan(beta(j)*LLambda(j)/2)
-          do m=1, Mmat
+          do m=1, Mmat(j)
             jsum = jsum - cconst_lowTemp(j, m) / nu(j, m)
           end do
           result(n,:,:) = result(n,:,:) - jsum * MATMUL(V(j,:,:), MATMUL(V(j,:,:), rhoin(n,:,:)))
@@ -2183,15 +2204,15 @@ module qme_hierarchy
        end do
 
        do j=1, NSB
-          do m=0, Mmat
+          do m=0, Mmat(j)
             result(n,:,:) = result(n,:,:) - iconst * MATMUL(V(j,:,:), rhoin(permplus(n, j, m), :, :))
             result(n,:,:) = result(n,:,:) + iconst * MATMUL(rhoin(permplus(n, j, m), :, :), V(j,:,:))
           end do
        end do
 
        do j=1, NSB
-          do m=0, Mmat
-            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
+          do m=0, Mmat(j)
+            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat(j)+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
           end do
        end do
       end do
