@@ -2200,7 +2200,7 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,:,:)
       real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:,:)
-      integer(i4b) :: n, j, nnp
+      integer(i4b) :: n, j, nnp, s
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
       complex(dpc) :: musum, jsum
 
@@ -2241,6 +2241,16 @@ module qme_hierarchy
             result(n,:,:) = result(n,:,:) - perm(n, mindex(j,m))*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
           end do
        end do
+
+      if(light_hierarchy) then
+        ! relaxation
+        result(n,:(Nsys-1),:(Nsys-1)) = result(n,:(Nsys-1),:(Nsys-1)) - global_relax_rate * rhoin(n,:(Nsys-1),:(Nsys-1))
+
+        do s=1, Nsys-1
+          result(n,Nsys,Nsys) = result(n,Nsys,Nsys) + global_relax_rate * rhoin(n,s,s)
+        end do
+      end if
+
       end do
     end subroutine arend_Lmult2_LowTemp
 
