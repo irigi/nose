@@ -97,7 +97,6 @@ module qme_hierarchy
     complex(dpc), parameter, private:: iconst = dcmplx(0.0, 1.0)
 
     integer(i4b), private :: Nhier = 1! number of density matrices in hierarchy
-    integer(i4b), private :: tt, nin, s, s2, nnt1, nt1in, nnt3, nnt2, w1, w2
 
     integer(i4b), allocatable, private :: perm(:,:)
     integer(i4b), allocatable, private :: permplus(:,:,:), permmin(:,:,:)
@@ -156,6 +155,10 @@ module qme_hierarchy
     private::arend_Lmult2_LowTemp
     private::arend_Lmult3
 
+    private::mindex
+    private::nplus
+    private::nmin
+
     private::arend_propagate1reph
     private::arend_propagate1nonreph
     private::arend_propagate2
@@ -165,7 +168,6 @@ module qme_hierarchy
     private::light_CF
     private::close_files
     private::open_files
-    !private::arend_mancal_valkunas_quantum_light
     private::arend_mancal_valkunas_quantum_light2
     private::arend_bloch_equations_CW
     private::arend_bloch_equations_noise
@@ -360,7 +362,7 @@ module qme_hierarchy
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
       complex(dpc) :: intFactor
-      integer(i4b) :: nnt
+      integer(i4b) :: nnt, s, s2, nin, nnt1, nnt2
 
       call arend_initmult1()
       call arend_initmult2()
@@ -489,6 +491,8 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
+      integer(i4b) :: s, s2, nnt1, nin
+
 
       call arend_initmult1()
       call arend_initmult2()
@@ -564,7 +568,7 @@ module qme_hierarchy
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
       complex(dpc), dimension(Nhier+1, Nsys, Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
-      integer(i4b) :: aa,bb
+      integer(i4b) :: aa,bb, nin, nnt1, s, s2
 
       !call arend_initmult1_lowtemp()
       !call arend_initmult2_lowtemp()
@@ -642,7 +646,7 @@ module qme_hierarchy
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept1) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
-      integer(i4b) :: nnoise
+      integer(i4b) :: nnoise, s, s2, nin, nnt1
       logical      :: write_this_loop
 
 
@@ -746,6 +750,7 @@ module qme_hierarchy
 
       character(len=128) :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys) :: rhotmp
+      integer(i4b) :: s, s2, nnt1, nin, nnt2
 
       do s=1, Nsys
       do s2=1, Nsys
@@ -843,6 +848,7 @@ module qme_hierarchy
       integer(i4b), intent(in) :: i0
 
       character(len=128) :: buff
+      integer(i4b) :: s, s2, nnt1, nin
 
       do s=1, Nsys
         write(buff, '(I2)') s
@@ -896,6 +902,7 @@ module qme_hierarchy
 
     subroutine open_files()
       character(len=128)     :: buff, buff2
+      integer(i4b) :: s, s2
 
       do s=1, Nsys
       do s2=1, Nsys
@@ -918,6 +925,8 @@ module qme_hierarchy
     end subroutine open_files
 
     subroutine close_files()
+      integer(i4b) :: s, s2
+
       do s=1, Nsys
       do s2=1, Nsys
         close(s+Nsys*s2+10)
@@ -930,7 +939,7 @@ module qme_hierarchy
 
     subroutine arend_init()
       character(len=256) :: buff
-      integer(i4b)       :: j
+      integer(i4b)       :: j, s, s2, tt
 
       if(light_hierarchy) then ! include ground state into system
         Nsys = N1_from_type('E') + 1
@@ -1146,6 +1155,8 @@ module qme_hierarchy
 
 
     subroutine arend_fill_parameters()
+      integer(i4b) :: s, s2, nnt1, nin
+
       character(len=256) :: buff
 
       ! parameters for system-bath coupling
@@ -1278,6 +1289,8 @@ module qme_hierarchy
     subroutine arend_init2()
       character(len=128) :: buff
 
+      integer(i4b) :: s, s2, nnt1, nin
+
       ! build index
       tierstart = 1 ! first element of the current tier
       currentindex = 2
@@ -1366,6 +1379,8 @@ module qme_hierarchy
     end subroutine arend_init2
 
     subroutine arend_2D()
+      integer(i4b) :: s, s2, nnt1, nin, nnt2, nnt3, w1, w2
+
       ! REPHASING
 
       if (calculatereph) then
@@ -1795,11 +1810,22 @@ module qme_hierarchy
 
     end function permindex
 
+    function mindex(jin, mmin)
+      integer(i4b), intent(in) :: jin, mmin
+      integer(i4b) :: kkk, mindex
+
+      mindex = mmin + 1
+      do kkk = 1, jin-1
+        mindex = mindex + Mmat(kkk)+1
+      end do
+
+    end function mindex
+
     function nplus (nin, jin, mmin)
       integer(i4b), intent(in):: nin, jin, mmin
       integer(i4b):: nplus, ind
 
-      ind = (jin-1) * (Mmat(jin)+1) + mmin + 1
+      ind = mindex(jin, mmin)
 
       currentperm = perm(nin, :)
       currentperm(ind) = currentperm(ind) + 1
@@ -1817,7 +1843,7 @@ module qme_hierarchy
       integer(i4b), intent(in):: nin, jin, mmin
       integer(i4b):: nmin, ind
 
-      ind = (jin-1) * (Mmat(jin)+1) + mmin + 1
+      ind = mindex(jin, mmin)
 
       currentperm = perm(nin, :)
 
@@ -2123,7 +2149,7 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,:,:)
       real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:,:)
-      integer:: n,j, nnp
+      integer(i4b) :: n, j, nnp, s, s2
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
       result(:,:,:) = 0.0
@@ -2186,9 +2212,9 @@ module qme_hierarchy
         ! n nu
         musum = 0
         do j=1, NSB
-          musum = musum + perm(n, (j-1)*(Mmat(j)+1)+1) * LLambda(j)
+          musum = musum + perm(n, mindex(j,0)) * LLambda(j)
           do m=1, Mmat(j)
-            musum = musum + perm(n, (j-1)*(Mmat(j)+1)+m+1) * 2*pi*m/beta(j)
+            musum = musum + perm(n, mindex(j,m)) * 2*pi*m/beta(j)
           end do
         end do
         result(n,:,:) = result(n,:,:) - musum * rhoin(n,:,:)
@@ -2212,7 +2238,7 @@ module qme_hierarchy
 
        do j=1, NSB
           do m=0, Mmat(j)
-            result(n,:,:) = result(n,:,:) - perm(n, (j-1)*(Mmat(j)+1)+m+1)*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
+            result(n,:,:) = result(n,:,:) - perm(n, mindex(j,m))*(iconst*cconst_lowTemp(j, m) * MATMUL(V(j,:,:), rhoin(permmin(n, j, m), :, :)) + MATMUL(rhoin(permmin(n, j, m), :, :), V(j,:,:)) * conjg(iconst*cconst_lowTemp(j, m)))
           end do
        end do
       end do
@@ -2233,7 +2259,7 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,0:,0:)
       real(dp), intent(in)      :: ttt ! time (fs)
       complex(dpc), intent(out) :: result(:,0:,0:)
-      integer:: n,j, nnp
+      integer(i4b) :: n,j, nnp, s, s2
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
       real(dp)                  :: EE, tt
 
