@@ -628,6 +628,11 @@ module qme_hierarchy
 
 
 
+        if(time1 > 1) then
+            lambda(Nsys) = 0.0_dp
+            V(Nsys,:,:) = 0.0_dp
+        end if
+
         ! propagate t1
         do nin = 1, Ntimestept1in
           call arend_propagate2_lowTemp(dt)
