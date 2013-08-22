@@ -883,16 +883,16 @@ contains
                                     call nis_next(err)
                                     call print_error_message(err,"reading Brownian mode from NIS")
                                     sz = nis_get_size()
-                                    if ((sz(1) /= 2).or.(sz(2) /= 1)) then
+                                    if ((sz(1) /= 3).or.(sz(2) /= 1)) then
                                         call print_error_message(-1,"Brownian mode from NIS - wrong rank")
                                     end if
-                                    ALLOCATE(rbuff_v,(2))
-                                    rbuff_v = nis_get_real(2)
-                                    current_s_goft%params(1:2,current_s_goft%nr_modes) = rbuff_v
+                                    ALLOCATE(rbuff_v,(3))
+                                    rbuff_v = nis_get_real(3)
+                                    current_s_goft%params(1:3,current_s_goft%nr_modes) = rbuff_v
                                 else
-                                    call print_error_message(-1,"Missing record at NIS (Brownian mode)")
+                                    call print_error_message(-1,"Missing record at NIS (Hierarchy low temp mode)")
                                 end if
-                                write(cbuff,'(a,2f18.12)') "Brownian mode parameters ", rbuff_v
+                                write(cbuff,'(a,3f18.12)') "Brownian mode parameters ", rbuff_v
                                 call print_log_message(trim(cbuff),7)
 
                             else if (trim(caux) == "BROWNIAN_LOW_TEMP_HIERARCHY_DELTA") then
@@ -907,16 +907,16 @@ contains
                                     call nis_next(err)
                                     call print_error_message(err,"reading Brownian mode from NIS")
                                     sz = nis_get_size()
-                                    if ((sz(1) /= 2).or.(sz(2) /= 1)) then
+                                    if ((sz(1) /= 3).or.(sz(2) /= 1)) then
                                         call print_error_message(-1,"Brownian mode from NIS - wrong rank")
                                     end if
-                                    ALLOCATE(rbuff_v,(2))
-                                    rbuff_v = nis_get_real(2)
-                                    current_s_goft%params(1:2,current_s_goft%nr_modes) = rbuff_v
+                                    ALLOCATE(rbuff_v,(3))
+                                    rbuff_v = nis_get_real(3)
+                                    current_s_goft%params(1:3,current_s_goft%nr_modes) = rbuff_v
                                 else
-                                    call print_error_message(-1,"Missing record at NIS (Brownian mode)")
+                                    call print_error_message(-1,"Missing record at NIS (Hierarchy low temp delta mode)")
                                 end if
-                                write(cbuff,'(a,2f18.12)') "Brownian mode parameters ", rbuff_v
+                                write(cbuff,'(a,3f18.12)') "Brownian mode parameters ", rbuff_v
                                 call print_log_message(trim(cbuff),7)
 
                             else if (trim(caux) == "GAUSSIAN") then
