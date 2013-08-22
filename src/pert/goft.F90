@@ -779,10 +779,10 @@ contains
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
         complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        real(dp), intent(out)		        	:: lambda
         character(len=*), intent(in), optional	:: ADD
 
-        complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
+        complex(dpc), dimension(size(ggt))	    :: cct_tmp,hht_tmp,ggt_tmp
         real(dp)								:: BH, LLambda,t
         integer(i4b)							:: Ntt, i
 
@@ -840,11 +840,11 @@ contains
 	subroutine brownian_no_matsubara(params,ggt,cct,hht,lambda,ADD)
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
-        complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        complex(dpc), dimension(:), pointer	    :: cct,hht
+        real(dp), intent(out)                   :: lambda
         character(len=*), intent(in), optional	:: ADD
 
-        complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
+        complex(dpc), dimension(size(ggt))   	:: cct_tmp,hht_tmp,ggt_tmp
         real(dp)								:: BH, LLambda,t
         integer(i4b)							:: Ntt, i
 
@@ -897,12 +897,12 @@ contains
     !    C(Lambda, ll, t) = Lambda ll CC(T,x)
     function dimensionless_CC_LTH(T,x,delta) result(CC)
         real(dp), intent(in)        :: x, T
-        logical, intent(in)           :: delta
+        logical, intent(in)         :: delta
         complex(dpc)                :: CC
 
-        real(dp)                         :: diff
-        integer(i4b)                   :: i
-        character(len=256)      :: buff
+        real(dp)                    :: diff
+        integer(i4b)                :: i
+        character(len=256)          :: buff
 
         CC =      exp(-T*x)*((3*x*x - PI_D * PI_D)/(x*x*x - x*PI_D*PI_D)     -     cmplx(0,1,dpc))
 
@@ -917,11 +917,11 @@ contains
         real(dp), dimension(:), intent(in)      :: params
         complex(dpc), dimension(:), pointer     :: ggt
         complex(dpc), dimension(:), pointer     :: cct,hht
-        real(dp), intent(out)                       :: lambda
+        real(dp), intent(out)                   :: lambda
         character(len=*), intent(in), optional  :: ADD
-        logical, intent(in)                             :: delta
+        logical, intent(in)                     :: delta
 
-        complex(dpc), dimension(size(ggt))  :: cct_tmp,hht_tmp,ggt_tmp
+        complex(dpc), dimension(size(ggt))      :: cct_tmp,hht_tmp,ggt_tmp
         real(dp)                                :: BH, LLambda,t
         integer(i4b)                            :: Ntt, i
 
@@ -974,7 +974,7 @@ contains
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
         complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        real(dp), intent(out)			        :: lambda
         character(len=*), intent(in), optional	:: ADD
 
         complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
@@ -1189,6 +1189,9 @@ contains
     	do i=1,Ntt
 !	       	write(11,*) i*dt,real(ggt_tmp(i)),real(hht_tmp(i)),real(cct_tmp(i))
 !	       	write(12,*) i*dt,aimag(ggt_tmp(i)),aimag(hht_tmp(i)),aimag(cct_tmp(i))
+
+!           write(11,*) i*dt,real(cct_tmp(i)) !,real(hht_tmp(i)),real(cct_tmp(i))
+!           write(12,*) i*dt,aimag(cct_tmp(i)) !,aimag(hht_tmp(i)),aimag(cct_tmp(i))
 
         	cct(i) = cct_tmp(i) + cct(i)
     	    hht(i) = hht_tmp(i) + hht(i)
