@@ -937,17 +937,10 @@ contains
 
         BH = (0.6582120_dp/8.617385d-5)/temp  ! hbar/kT
 
-        write(*,*) 'eeerr', params(1),' ', params(2),' ', params(3), ' ', BH, ' ', temp
-
         do i=1, Ntt
             t = (i-1)*dt
 
             ! written to include https://nanohub.org/resources/17092/download/gpuheom_nanohub.pdf (10-11)
-            cct_tmp(i) = lambda*(LLambda + cmplx(0,1)*OmegaShift)*&
-                               dimensionless_CC_LTH(2.0*t/BH, BH*(LLambda + cmplx(0,1)*OmegaShift)/2.0,delta) / 2
-            cct_tmp(i) = cct_tmp(i) + lambda*(LLambda - cmplx(0,1)*OmegaShift)*&
-                               dimensionless_CC_LTH(2.0*t/BH, BH*(LLambda - cmplx(0,1)*OmegaShift)/2.0,delta) / 2
-
 
           cct_tmp(i) = (0,-0.5)*exp((-LLambda + (0,1)*OmegaShift)*t)*lambda*(LLambda - (0,1)*OmegaShift) - (0,0.5)*exp((-LLambda - (0,1)*OmegaShift)*t)*lambda*(LLambda + (0,1)*OmegaShift) + &
        (exp((-LLambda + (0,1)*OmegaShift)*t)*lambda*(1 - (2*(LLambda - (0,1)*OmegaShift)**2)/(-(LLambda - (0,1)*OmegaShift)**2 + (4*Pi**2)/BH**2)))/BH +                                      &
@@ -968,14 +961,6 @@ contains
             t = (i-1)*dt
 
             if(delta) then
-                !hht_tmp(i) = hht_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))
-                !ggt_tmp(i) = ggt_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))*t
-
-!                hht_tmp(i) = hht_tmp(i) + 2*lambda*LLambda/BH/((2*PI_D/BH + cmplx(0,1)*OmegaShift)*(2*PI_D/BH + cmplx(0,1)*OmegaShift) - LLambda*LLambda)
-!                hht_tmp(i) = hht_tmp(i) + 2*lambda*LLambda/BH/((2*PI_D/BH - cmplx(0,1)*OmegaShift)*(2*PI_D/BH - cmplx(0,1)*OmegaShift) - LLambda*LLambda)
-!                ggt_tmp(i) = ggt_tmp(i) + 2*lambda*LLambda/BH/((2*PI_D/BH + cmplx(0,1)*OmegaShift)*(2*PI_D/BH + cmplx(0,1)*OmegaShift) - LLambda*LLambda)*t
-!                ggt_tmp(i) = ggt_tmp(i) + 2*lambda*LLambda/BH/((2*PI_D/BH - cmplx(0,1)*OmegaShift)*(2*PI_D/BH - cmplx(0,1)*OmegaShift) - LLambda*LLambda)*t
-
                 hht_tmp(i) = hht_tmp(i) + ( ((2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,-1)*OmegaShift + (2*PI_D)/BH)**2)) + (2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,1)*OmegaShift + (2*PI_D)/BH)**2)))/2. )
                 ggt_tmp(i) = ggt_tmp(i) + t*( ((2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,-1)*OmegaShift + (2*PI_D)/BH)**2)) + (2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,1)*OmegaShift + (2*PI_D)/BH)**2)))/2. )
             end if
