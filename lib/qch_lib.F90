@@ -3165,9 +3165,9 @@ module qch_lib
 
 
 !	if(tmp_dp > 0.5) then
-!		call pokus4(24)
+		call pokus4(24)
 !	else
-		call pokus3()
+!		call pokus3()
 !	end if
 
 !	call pokus2()
@@ -3851,14 +3851,14 @@ close(112)
 !		end do
 !		end do
 
-		call sleep(1)
-		return
+		!call sleep(1)
+		!return
 
 open(unit=112,file='/home/olsij4am/prace/nose-carotenoidJ-Xphi.dat')
-DO phi=0,0
-DO x = 0,32
+DO phi=0,32
+DO x = 0,0
 
-phi_D = phi/11.0_dp*PI
+phi_D = phi*3*PI/180.0_dp
 x_D = x*2.0_dp*Angstrom_in_Bohr_radii
 
 call prepare_carotenoid(vec1,n1,Z1,Dim)

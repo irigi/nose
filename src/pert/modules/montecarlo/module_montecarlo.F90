@@ -164,6 +164,8 @@ module module_montecarlo
             type = 'E'
         end if
 
+        call pokus()
+
         call init_monte_carlo()
         call init_goft_general()
         call write_gofts()
