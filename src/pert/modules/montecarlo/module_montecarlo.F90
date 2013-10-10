@@ -553,7 +553,7 @@ module module_montecarlo
             endif
 
             call write_evolution_operators('O')
-            call write_redfield_tensor('O')
+            !call write_redfield_tensor('O')
         end if
 
         !*************************************************************
@@ -695,7 +695,7 @@ module module_montecarlo
         complex(dpc), dimension(Nl,Nl,STEPS*RUNS, MICROGROUP) :: rho_micro, rho_coherent_micro
 
         complex(dpc) :: factor_in
-        complex(dpc), dimension(Nl, Nl) :: rho_init
+!@!        complex(dpc), dimension(Nl, Nl) :: rho_init
         character(len=256) :: buff
         integer(i4b), dimension(3) :: time
 
@@ -720,7 +720,7 @@ module module_montecarlo
             rho_coherent_micro = 0.0_dp
 
             do i_m=1, TRAJECTORIES/MICROGROUP
-            !$OMP PARALLEL DO
+            !$OMP PARALLEL DO PRIVATE(i,r,a,b)
             do m=1, MICROGROUP
                 i = (i_m-1)*MICROGROUP+m ! denotes number of trajectories
 
@@ -765,8 +765,8 @@ module module_montecarlo
 !@!                    call generate_trajectory(draha(:,:,m), factor, rho_init(a,b), a, b, i0, j0, run)
 !@!
 !@!                else
-                    rho_init(:,:) = 0.0_dp
-                    rho_init(i0,j0) = 1.0_dp
+!@!                    rho_init(:,:) = 0.0_dp
+!@!                    rho_init(i0,j0) = 1.0_dp
 
                     call generate_trajectory(draha(:,:,m), factor(:,m), 1.0_dp, i0, j0, i0, j0, run)
 
@@ -778,8 +778,8 @@ module module_montecarlo
 
                 if(mod(i,1000) == 0) then
                             call itime(time)
-                            write(buff, '(A I2 A I2.2 A I2.2 A I6)') '  time ',time(1), ':', time(2), ':', time(3) ,  &
-                             ', STEPS/1000: ',i/1000+(run-1)*TRAJECTORIES/1000
+                            write(buff, '(A I2 A I2.2 A I2.2 A I6 A I6 A I6)') '  time ',time(1), ':', time(2), ':', time(3) ,  &
+                             ', STEPS/1000: ',i/1000+(run-1)*TRAJECTORIES/1000, ' ', i_m, ' ', m
                             call print_log_message(trim(buff), 5)
                 end if
 
