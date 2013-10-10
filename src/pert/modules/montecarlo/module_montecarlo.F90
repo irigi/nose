@@ -631,7 +631,7 @@ module module_montecarlo
             call init_random_seed()
         end if
 
-        TRAJECTORIES = 1000*Nt(2)
+        TRAJECTORIES = 10000*Nt(2)
 !        TRAJECTORIES_STORED = min(TRAJECTORIES, 1000)
         RUNS = 1 !gt(2)
         jumps_in_one_run = gt(3)
