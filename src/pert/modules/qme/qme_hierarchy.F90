@@ -2082,6 +2082,7 @@ module qme_hierarchy
 
       result(:,:) = 0.0
 
+      !$OMP PARALLEL DO
       do n = 1, Nhier
 
         result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
@@ -2092,6 +2093,7 @@ module qme_hierarchy
         end do
 
       end do
+      !$OMP END PARALLEL DO
     end subroutine arend_Lmult1
 
     subroutine arend_propagate1reph (dt)
@@ -2159,6 +2161,7 @@ module qme_hierarchy
 
       result(:,:,:) = 0.0
 
+      !$OMP PARALLEL DO
       do n = 1, Nhier
         result(n,:,:) = result(n,:,:) + MATMUL(opLeft2(n,:,:), rhoin(n,:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight2(n,:,:))
@@ -2181,6 +2184,7 @@ module qme_hierarchy
       end if
 
       end do
+      !$OMP END PARALLEL DO
     end subroutine arend_Lmult2
 
     subroutine arend_propagate2 (dt)
@@ -2283,6 +2287,7 @@ module qme_hierarchy
       tt = ttt
 
       if(bloch_term) then
+        !$OMP PARALLEL DO
         do n = 1, Nhier
           do s=1, Nsys
             result(n,0,0) = result(n,0,0) - iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
@@ -2298,11 +2303,13 @@ module qme_hierarchy
           end do
           end do
         end do
+        !$OMP END PARALLEL DO
       end if
 
       if(noise_term) then
         tt = min(max(0.5_dp, tt), dt*Ntimestept1*Ntimestept1In - 0.5)
 
+        !$OMP PARALLEL DO
         do n = 1, Nhier
           do s=1, Nsys
             result(n,0,0) = result(n,0,0) - iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
@@ -2318,9 +2325,11 @@ module qme_hierarchy
           end do
           end do
         end do
+        !$OMP END PARALLEL DO
       end if
 
       ! Lmult1 part
+      !$OMP PARALLEL DO
       do n = 1, Nhier
         result(n,1:,0) = result(n,1:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
 
@@ -2334,8 +2343,10 @@ module qme_hierarchy
 !!          result(n,0,j) = conjg(result(n,j,0))
 !!        end do
       end do
+      !$OMP END PARALLEL DO
 
       ! Lmult2 part
+      !$OMP PARALLEL DO
       do n = 1, Nhier
         result(n,1:,1:) = result(n,1:,1:) + MATMUL(opLeft2(n,:,:), rhoin(n,1:,1:))
         result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(n,1:,1:), opRight2(n,:,:))
@@ -2355,6 +2366,7 @@ module qme_hierarchy
           result(n,0,0) = result(n,0,0) + global_relax_rate * rhoin(n,s,s)
         end do
       end do
+      !$OMP END PARALLEL DO
 
       ! channel to the ground state here?
     end subroutine arend_LmultC
@@ -2381,6 +2393,7 @@ module qme_hierarchy
     result(:,:,:) = 0.0
 
 
+    !$OMP PARALLEL DO
     do n = 1, Nhier
 
       result(n,:,:) = result(n,:,:) + MATMUL(opLeft3(n,:,:), rhoin(n,:,:))
@@ -2395,6 +2408,7 @@ module qme_hierarchy
       end do
 
     end do
+    !$OMP END PARALLEL DO
 
     end subroutine arend_Lmult3
 
