@@ -42,7 +42,7 @@ module module_montecarlo
     implicit none
 
      ! declarations
-     integer(i4b), private    ::    TRAJECTORIES, TRAJECTORIES_STORED, RUNS, MICROGROUP
+     integer(i4b), private    ::    TRAJECTORIES, RUNS, MICROGROUP
 
      integer(i4b), private    ::    STEPS = -1
      integer(i4b), private    ::    Nl                                 ! number of one-excitons
@@ -51,11 +51,9 @@ module module_montecarlo
      real(dp), private        ::  jumps_in_one_run                     ! jumps in average in one run
      real(dp), private        ::  p_of_no_jump, p_of_no_jump_measured  ! probability of no jump (important for restarting)
      complex(dpc), dimension(:,:,:), allocatable, private     :: rho, rho_coherent
-     complex(dpc), dimension(:,:,:,:), allocatable, private   :: rho_micro
-     integer(i4b), dimension(:,:), allocatable, private       :: rho_micro_N
      real(dp), parameter, private :: CoherentFactorMultiplierToLowerJumpProb = 1.0_dp
 
-     integer(i1b), dimension(:,:,:), allocatable :: trajectory_depository
+!     integer(i1b), dimension(:,:,:), allocatable :: trajectory_depository
 !     integer(i4b), dimension(:,:), allocatable   :: factor_depository
 
     complex, dimension(:,:,:,:,:), allocatable   :: gg_MC, hh_MC, cc_MC
@@ -626,8 +624,8 @@ module module_montecarlo
         end if
 
         TRAJECTORIES = 10000*Nt(2)
-        TRAJECTORIES_STORED = min(TRAJECTORIES, 1000)
-        RUNS = gt(2)
+!        TRAJECTORIES_STORED = min(TRAJECTORIES, 1000)
+        RUNS = 1 !gt(2)
         jumps_in_one_run = gt(3)
 
         MICROGROUP = TRAJECTORIES/(10**Nt(3))
@@ -656,15 +654,11 @@ module module_montecarlo
 
         ALLOCATE(rho,(Nl,Nl,STEPS*RUNS))
         ALLOCATE(rho_coherent,(Nl,Nl,STEPS*RUNS))
-        ALLOCATE(rho_micro,(Nl,Nl,RUNS,TRAJECTORIES/MICROGROUP))
-        ALLOCATE(rho_micro_N,(RUNS,TRAJECTORIES/MICROGROUP))
         rho = 0.0_dp
         rho_coherent = 0.0_dp
-        rho_micro = 0.0_dp
-        rho_micro_N = 0
 
-        ALLOCATE(trajectory_depository,(TRAJECTORIES_STORED,2,STEPS*RUNS))
-        trajectory_depository = 0
+!        ALLOCATE(trajectory_depository,(TRAJECTORIES_STORED,2,STEPS*RUNS))
+!        trajectory_depository = 0
 
 
             ALLOCATE(evops(1,1)%Ueg,(Nl, 1,Nl, 1,Nt(1)) )
@@ -685,9 +679,7 @@ module module_montecarlo
     subroutine clean_montecarlo()
         DEALLOCATE(rho)
         DEALLOCATE(rho_coherent)
-        DEALLOCATE(rho_micro)
-        DEALLOCATE(rho_micro_N)
-        DEALLOCATE(trajectory_depository)
+!        DEALLOCATE(trajectory_depository)
     end subroutine clean_montecarlo
 
     subroutine perform_montecarlo(i0, j0)
@@ -698,7 +690,7 @@ module module_montecarlo
         real(dp)     :: r, norm
 
         integer(i1b), dimension(2,STEPS*RUNS) :: draha
-        integer(i1b), dimension(TRAJECTORIES_STORED,2,STEPS*RUNS) :: depository_tmp
+!@!        integer(i1b), dimension(TRAJECTORIES_STORED,2,STEPS*RUNS) :: depository_tmp
         complex(dpc), dimension(STEPS*RUNS)   :: factor, Gfactor, Ifactor
         complex(dpc), dimension(STEPS*RUNS)   :: fIfGf_cor, Gf_cor, f_cor, If_cor, fIf_cor
         complex(dpc) :: factor_in
@@ -708,8 +700,6 @@ module module_montecarlo
 
         rho = 0.0_dp
         rho_coherent = 0.0_dp
-        rho_micro = 0.0_dp
-        rho_micro_N = 0
 
         factor_in = 1.0_dp
         Gfactor = cmplx(1,0,dpc)
@@ -745,35 +735,35 @@ module module_montecarlo
                     b = 1
                 end if
 
-                if(run > 1) then
-                    ! preparation of initial condition
-                    rho_init(:,:) = 0.0_dp
-                    rho_init(i0,j0) = 1.0_dp
-                    !!!call get_coherent_dynamics(rho_init(:,:), (STEPS*(run-1)+1)*timeStep)
-
-                    if(rho_micro_N(run-1,i_m) == 0) then
-                        cycle
-                    end if
-
-                    rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump/rho_micro_N(run-1,i_m)
-                    rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump_measured/MICROGROUP
-
-                    if(abs(rho_init(a,b)) < 1e-6) then
-                        cycle
-                    end if
-
-
-                    if(m == 1) then
-                        write(*,*) 'p_of_no_jump,MICROGROUP',p_of_no_jump, p_of_no_jump_measured, MICROGROUP
-                        write(*,*) 'rho_init', rho_init
-                        write(*,*) 'rho_micro - source', rho_micro(:,:,run-1,i_m)
-                        write(*,*) 'rho_micro_N', rho_micro_N(run-1,i_m)
-                    end if
-
-
-                    call generate_trajectory(draha, factor, rho_init(a,b), a, b, i0, j0, run)
-
-                else
+!@!                if(run > 1) then
+!@!                    ! preparation of initial condition
+!@!                    rho_init(:,:) = 0.0_dp
+!@!                    rho_init(i0,j0) = 1.0_dp
+!@!                    !!!call get_coherent_dynamics(rho_init(:,:), (STEPS*(run-1)+1)*timeStep)
+!@!
+!@!                    if(rho_micro_N(run-1,i_m) == 0) then
+!@!                        cycle
+!@!                    end if
+!@!
+!@!                    rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump/rho_micro_N(run-1,i_m)
+!@!                    rho_init(:,:) = rho_micro(:,:,run-1,i_m)/p_of_no_jump_measured/MICROGROUP
+!@!
+!@!                    if(abs(rho_init(a,b)) < 1e-6) then
+!@!                        cycle
+!@!                    end if
+!@!
+!@!
+!@!                    if(m == 1) then
+!@!                        write(*,*) 'p_of_no_jump,MICROGROUP',p_of_no_jump, p_of_no_jump_measured, MICROGROUP
+!@!                        write(*,*) 'rho_init', rho_init
+!@!                        write(*,*) 'rho_micro - source', rho_micro(:,:,run-1,i_m)
+!@!                        write(*,*) 'rho_micro_N', rho_micro_N(run-1,i_m)
+!@!                    end if
+!@!
+!@!
+!@!                    call generate_trajectory(draha, factor, rho_init(a,b), a, b, i0, j0, run)
+!@!
+!@!                else
                     rho_init(:,:) = 0.0_dp
                     rho_init(i0,j0) = 1.0_dp
 
@@ -783,7 +773,7 @@ module module_montecarlo
                         p_of_no_jump_measured = abs(rho(i0,j0,1))/i
                         write(*,*) 'p_of_no_jump_measured', p_of_no_jump_measured
                     end if
-                end if
+!@!                end if
 
                 if(mod(i,1000) == 0) then
                             call itime(time)
@@ -827,16 +817,9 @@ module module_montecarlo
                     end if
                 end do
 
-                rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m) =                   &
-                rho_micro(draha(1,STEPS*run),draha(2,STEPS*run),run,i_m)                     &
-!                    + factor(STEPS*run)*conjg(Gfactor(STEPS*run))*Ifactor(STEPS*run)
-                    + factor(STEPS*run)*Ifactor(STEPS*run)
-
-                rho_micro_N(run,i_m) = rho_micro_N(run,i_m) + 1
-
-                if(i <= TRAJECTORIES_STORED) then
-                    depository_tmp(i,:,:) = draha
-                end if
+!@!                if(i <= TRAJECTORIES_STORED) then
+!@!                    depository_tmp(i,:,:) = draha
+!@!                end if
 
             end do
             end do
@@ -865,7 +848,7 @@ module module_montecarlo
                 end if
             end do
 
-            trajectory_depository = depository_tmp
+!            trajectory_depository = depository_tmp
 !            trajectory_depository = 0
 !            call collect_rho(run)
 !            write(*,*) 'run',run
@@ -1284,59 +1267,59 @@ module module_montecarlo
             trajectory(2, STEPS*(run-1) + 1) = j0
         end if
 
-        if(run > 1) then
-            ! we add random histories from depository to trajectory, backwards
-            if(depository) then
-                ! in this case, i00 and j00 are ignored - they are contained in depository
-                do inside_run=run-1,1,-1
-                    call random_number(cumulative_random)
-                    a = int(cumulative_random * TRAJECTORIES_STORED + 1.0_dp)
-                    b = 0 ! too high b signalizes there is not enough trajectories in that element
-
-                        do while(.not.(                                       &
-                     trajectory_depository(a, 1, STEPS*inside_run) ==         &
-                         trajectory(1, STEPS*inside_run + 1)                  &
-                         .and.                                                &
-                     trajectory_depository(a, 2, STEPS*inside_run) ==         &
-                         trajectory(2, STEPS*inside_run + 1)) )
-
-                        if(a < 1 .or. a > TRAJECTORIES_STORED) then
-                            call print_error_message(-1, "wrong 'a' generated in generate_trajectory()")
-                        end if
-                        if(b > TRAJECTORIES_STORED) then
-                            call print_log_message("no valid history to add in generate_trajectory()", 5)
-                            exit
-                        end if
-
-                        call random_number(cumulative_random)
-                        a = int(cumulative_random * TRAJECTORIES_STORED + 1.0_dp)
-                        b = b + 1
-                    end do
-
-                    if(b > TRAJECTORIES_STORED) then
-                        trajectory = 0
-                    else
-                        trajectory(:,STEPS*(inside_run-1)+1:STEPS*inside_run) = &
-                            trajectory_depository(a,:,STEPS*(inside_run-1)+1:STEPS*inside_run)
-                    end if
-                end do
-            else
-                if(run - 1 == 1) then
-                    call generate_trajectory_cmplx(trajectory, factor_out, factor_in, i00, j00, i00, j00, run-1)
-                end if
-
-                if(.not.(i0 == -1 .and. j0 == -1) .and. run - 1 > 1) then
-                    do while(.not.(                                                &
-                     i0 ==    trajectory(1, STEPS*run)                             &
-                         .and.                                                     &
-                     j0 ==    trajectory(2, STEPS*run)    ) )
-
-                         call generate_trajectory_cmplx(trajectory, factor_out, factor_in, -1, -1, i00, j00, run-1)
-                end do
-                end if
-
-            end if
-        end if
+!@!        if(run > 1) then
+!@!            ! we add random histories from depository to trajectory, backwards
+!@!            if(depository) then
+!@!                ! in this case, i00 and j00 are ignored - they are contained in depository
+!@!                do inside_run=run-1,1,-1
+!@!                    call random_number(cumulative_random)
+!@!                    a = int(cumulative_random * TRAJECTORIES_STORED + 1.0_dp)
+!@!                    b = 0 ! too high b signalizes there is not enough trajectories in that element
+!@!
+!@!                        do while(.not.(                                       &
+!@!                     trajectory_depository(a, 1, STEPS*inside_run) ==         &
+!@!                         trajectory(1, STEPS*inside_run + 1)                  &
+!@!                         .and.                                                &
+!@!                     trajectory_depository(a, 2, STEPS*inside_run) ==         &
+!@!                         trajectory(2, STEPS*inside_run + 1)) )
+!@!
+!@!                        if(a < 1 .or. a > TRAJECTORIES_STORED) then
+!@!                            call print_error_message(-1, "wrong 'a' generated in generate_trajectory()")
+!@!                        end if
+!@!                        if(b > TRAJECTORIES_STORED) then
+!@!                            call print_log_message("no valid history to add in generate_trajectory()", 5)
+!@!                            exit
+!@!                        end if
+!@!
+!@!                        call random_number(cumulative_random)
+!@!                        a = int(cumulative_random * TRAJECTORIES_STORED + 1.0_dp)
+!@!                        b = b + 1
+!@!                    end do
+!@!
+!@!                    if(b > TRAJECTORIES_STORED) then
+!@!                        trajectory = 0
+!@!                    else
+!@!                        trajectory(:,STEPS*(inside_run-1)+1:STEPS*inside_run) = &
+!@!                            trajectory_depository(a,:,STEPS*(inside_run-1)+1:STEPS*inside_run)
+!@!                    end if
+!@!                end do
+!@!            else
+!@!                if(run - 1 == 1) then
+!@!                    call generate_trajectory_cmplx(trajectory, factor_out, factor_in, i00, j00, i00, j00, run-1)
+!@!                end if
+!@!
+!@!                if(.not.(i0 == -1 .and. j0 == -1) .and. run - 1 > 1) then
+!@!                    do while(.not.(                                                &
+!@!                     i0 ==    trajectory(1, STEPS*run)                             &
+!@!                         .and.                                                     &
+!@!                     j0 ==    trajectory(2, STEPS*run)    ) )
+!@!
+!@!                         call generate_trajectory_cmplx(trajectory, factor_out, factor_in, -1, -1, i00, j00, run-1)
+!@!                end do
+!@!                end if
+!@!
+!@!            end if
+!@!        end if
 
         factor_out(STEPS*(run-1)+1) = factor_in
         trajectory(1,STEPS*(run-1)+1) = i0

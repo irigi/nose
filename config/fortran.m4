@@ -36,7 +36,7 @@ case $host in
 			gfortran)
 				F77="gfortran"	
 				FC=$F77	
-				FCFLAGS=" -ffloat-store  -ffree-line-length-none -msse2 -O3"
+				FCFLAGS=" -ffloat-store  -ffree-line-length-none -msse2 -O3  -fopenmp -g -fbounds-check"
 				case ${DEBUGGING} in
 					yes)
 						FCFLAGS="-g -fbounds-check -ffree-line-length-none"
