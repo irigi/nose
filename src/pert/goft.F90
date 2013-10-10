@@ -374,12 +374,12 @@ contains
 
             else if (trim(tp(i)) == "BROWNIAN_LOW_TEMP_HIERARCHY") then
 
-                call brownian_low_temp_hierarchy(params(1:2,i),ggt,cct,hht,ll,ADD="yes",delta=.false.)
+                call brownian_low_temp_hierarchy(params(1:3,i),ggt,cct,hht,ll,ADD="yes",delta=.false.)
                 lambda = lambda + ll
 
            else if (trim(tp(i)) == "BROWNIAN_LOW_TEMP_HIERARCHY_DELTA") then
 
-                call brownian_low_temp_hierarchy(params(1:2,i),ggt,cct,hht,ll,ADD="yes",delta=.true.)
+                call brownian_low_temp_hierarchy(params(1:3,i),ggt,cct,hht,ll,ADD="yes",delta=.true.)
                 lambda = lambda + ll
 
             else if (trim(tp(i)) == "DELTA") then
@@ -779,10 +779,10 @@ contains
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
         complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        real(dp), intent(out)		        	:: lambda
         character(len=*), intent(in), optional	:: ADD
 
-        complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
+        complex(dpc), dimension(size(ggt))	    :: cct_tmp,hht_tmp,ggt_tmp
         real(dp)								:: BH, LLambda,t
         integer(i4b)							:: Ntt, i
 
@@ -811,8 +811,8 @@ contains
         	end if
         end do
 
-!		open(unit=11,file='/home/olsij4am/prace/NOSE-debug.dat')
-!		open(unit=12,file='/home/olsij4am/prace/NOSE-debug2.dat')
+!		open(unit=11,file='/home/olsij4am/prace/nose-debug.dat')
+!		open(unit=12,file='/home/olsij4am/prace/nose-debug2.dat')
 
     	! write to global functions
         if (.not. present(ADD)) then
@@ -822,8 +822,8 @@ contains
         end if
 
 	   	do i=1,Ntt
- !       	write(11,*) i*dt,real(ggt_tmp(i)),real(hht_tmp(i)),real(cct_tmp(i))
-  !      	write(12,*) i*dt,aimag(ggt_tmp(i)),aimag(hht_tmp(i)),aimag(cct_tmp(i))
+ !       	write(11,*) i*dt,real(cct_tmp(i)),real(hht_tmp(i)),real(ggt_tmp(i))
+  !      	write(12,*) i*dt,aimag(cct_tmp(i)),aimag(hht_tmp(i)),aimag(ggt_tmp(i))
 
         	cct(i) = cct_tmp(i) + cct(i)
     	    hht(i) = hht_tmp(i) + hht(i)
@@ -840,11 +840,11 @@ contains
 	subroutine brownian_no_matsubara(params,ggt,cct,hht,lambda,ADD)
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
-        complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        complex(dpc), dimension(:), pointer	    :: cct,hht
+        real(dp), intent(out)                   :: lambda
         character(len=*), intent(in), optional	:: ADD
 
-        complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
+        complex(dpc), dimension(size(ggt))   	:: cct_tmp,hht_tmp,ggt_tmp
         real(dp)								:: BH, LLambda,t
         integer(i4b)							:: Ntt, i
 
@@ -896,13 +896,14 @@ contains
     !    T = 2 t / beta hbar
     !    C(Lambda, ll, t) = Lambda ll CC(T,x)
     function dimensionless_CC_LTH(T,x,delta) result(CC)
-        real(dp), intent(in)        :: x, T
-        logical, intent(in)           :: delta
+        complex(dpc), intent(in)    :: x
+        real(dp), intent(in)        :: T
+        logical, intent(in)         :: delta
         complex(dpc)                :: CC
 
-        real(dp)                         :: diff
-        integer(i4b)                   :: i
-        character(len=256)      :: buff
+        real(dp)                    :: diff
+        integer(i4b)                :: i
+        character(len=256)          :: buff
 
         CC =      exp(-T*x)*((3*x*x - PI_D * PI_D)/(x*x*x - x*PI_D*PI_D)     -     cmplx(0,1,dpc))
 
@@ -917,19 +918,20 @@ contains
         real(dp), dimension(:), intent(in)      :: params
         complex(dpc), dimension(:), pointer     :: ggt
         complex(dpc), dimension(:), pointer     :: cct,hht
-        real(dp), intent(out)                       :: lambda
+        real(dp), intent(out)                   :: lambda
         character(len=*), intent(in), optional  :: ADD
-        logical, intent(in)                             :: delta
+        logical, intent(in)                     :: delta
 
-        complex(dpc), dimension(size(ggt))  :: cct_tmp,hht_tmp,ggt_tmp
-        real(dp)                                :: BH, LLambda,t
+        complex(dpc), dimension(size(ggt))      :: cct_tmp,hht_tmp,ggt_tmp
+        real(dp)                                :: BH, LLambda, t, OmegaShift, Matsu
         integer(i4b)                            :: Ntt, i
 
         !
         ! Set evaluation parameters
         !
-        lambda  = params(1)
-        LLambda     = 1.0_dp/params(2)
+        lambda     = params(1)
+        LLambda    = 1.0_dp/params(2)
+        OmegaShift = params(3)
 
         Ntt = size(ggt)
 
@@ -938,7 +940,13 @@ contains
         do i=1, Ntt
             t = (i-1)*dt
 
-            cct_tmp(i) = lambda*LLambda*dimensionless_CC_LTH(2.0*t/BH, BH*LLambda/2.0,delta)
+            ! written to include https://nanohub.org/resources/17092/download/gpuheom_nanohub.pdf (10-11)
+
+          cct_tmp(i) = (0,-0.5)*exp((-LLambda + (0,1)*OmegaShift)*t)*lambda*(LLambda - (0,1)*OmegaShift) - (0,0.5)*exp((-LLambda - (0,1)*OmegaShift)*t)*lambda*(LLambda + (0,1)*OmegaShift) + &
+       (exp((-LLambda + (0,1)*OmegaShift)*t)*lambda*(1 - (2*(LLambda - (0,1)*OmegaShift)**2)/(-(LLambda - (0,1)*OmegaShift)**2 + (4*Pi**2)/BH**2)))/BH +                                      &
+       (exp((-LLambda - (0,1)*OmegaShift)*t)*lambda*(1 - (2*(LLambda + (0,1)*OmegaShift)**2)/(-(LLambda + (0,1)*OmegaShift)**2 + (4*Pi**2)/BH**2)))/BH
+
+
             if(i > 1) then
                 hht_tmp(i) = hht_tmp(i-1) + dt*cct_tmp(i)
                 ggt_tmp(i) = ggt_tmp(i-1) + dt*hht_tmp(i)
@@ -950,11 +958,16 @@ contains
 
             ! delta-function part of the CF
         do i=1, Ntt
+            t = (i-1)*dt
+
             if(delta) then
-                hht_tmp(i) = hht_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))
-                ggt_tmp(i) = ggt_tmp(i) + lambda*LLambda/PI_D/(2.0/BH)*(1.0_dp/((BH*LLambda/2.0)+PI_D)-1.0_dp/((BH*LLambda/2.0)-PI_D))*t
+                hht_tmp(i) = hht_tmp(i) + ( ((2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,-1)*OmegaShift + (2*PI_D)/BH)**2)) + (2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,1)*OmegaShift + (2*PI_D)/BH)**2)))/2. )
+                ggt_tmp(i) = ggt_tmp(i) + t*( ((2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,-1)*OmegaShift + (2*PI_D)/BH)**2)) + (2*lambda*LLambda)/(BH*(-LLambda**2 + ((0,1)*OmegaShift + (2*PI_D)/BH)**2)))/2. )
             end if
         end do
+
+!        open(unit=11,file='/home/olsij4am/prace/nose-debug.dat')
+!        open(unit=12,file='/home/olsij4am/prace/nose-debug2.dat')
 
         ! write to global functions
         if (.not. present(ADD)) then
@@ -964,17 +977,25 @@ contains
         end if
 
         do i=1,Ntt
+!            write(11,*) i*dt,real(cct_tmp(i)),real(hht_tmp(i)),real(ggt_tmp(i))
+!            write(12,*) i*dt,aimag(cct_tmp(i)),aimag(hht_tmp(i)),aimag(ggt_tmp(i))
+
             cct(i) = cct_tmp(i) + cct(i)
             hht(i) = hht_tmp(i) + hht(i)
             ggt(i) = ggt_tmp(i) + ggt(i)
         end do
+
+!        close(11)
+!        close(12)
+!        write(*,*) 'debug functions written'
+!        stop
     end subroutine brownian_low_temp_hierarchy
 
 	subroutine brownian_underdamped(params,ggt,cct,hht,lambda,ADD)
         real(dp), dimension(:), intent(in)		:: params
         complex(dpc), dimension(:), pointer		:: ggt
         complex(dpc), dimension(:), pointer		:: cct,hht
-        real(dp), intent(out)						:: lambda
+        real(dp), intent(out)			        :: lambda
         character(len=*), intent(in), optional	:: ADD
 
         complex(dpc), dimension(size(ggt))	:: cct_tmp,hht_tmp,ggt_tmp
@@ -1025,8 +1046,8 @@ contains
         	ggt_tmp(i) = ggt_tmp(i) - ggt_tmp0
         end do
 
-!		open(unit=11,file='/home/olsij4am/prace/NOSE-debugU.dat')
-!		open(unit=12,file='/home/olsij4am/prace/NOSE-debugU2.dat')
+!		open(unit=11,file='/home/olsij4am/prace/nose-debug.dat')
+!		open(unit=12,file='/home/olsij4am/prace/nose-debug2.dat')
 
     	! write to global functions
         if (.not. present(ADD)) then
@@ -1036,8 +1057,8 @@ contains
         end if
 
 	   	do i=1,Ntt
-!			write(11,*) i*dt,real(ggt_tmp(i)),real(hht_tmp(i)),real(cct_tmp(i))
-!			write(12,*) i*dt,aimag(ggt_tmp(i)),aimag(hht_tmp(i)),aimag(cct_tmp(i))
+!			write(11,*) i*dt,real(cct_tmp(i)),real(hht_tmp(i)),real(ggt_tmp(i))
+!			write(12,*) i*dt,aimag(cct_tmp(i)),aimag(hht_tmp(i)),aimag(ggt_tmp(i))
 
         	cct(i) = cct_tmp(i) + cct(i)
     	    hht(i) = hht_tmp(i) + hht(i)
@@ -1187,8 +1208,8 @@ contains
         end if
 
     	do i=1,Ntt
-!	       	write(11,*) i*dt,real(ggt_tmp(i)),real(hht_tmp(i)),real(cct_tmp(i))
-!	       	write(12,*) i*dt,aimag(ggt_tmp(i)),aimag(hht_tmp(i)),aimag(cct_tmp(i))
+!	       	write(11,*) i*dt,real(cct_tmp(i)),real(hht_tmp(i)),real(ggt_tmp(i))
+!	       	write(12,*) i*dt,aimag(cct_tmp(i)),aimag(hht_tmp(i)),aimag(ggt_tmp(i))
 
         	cct(i) = cct_tmp(i) + cct(i)
     	    hht(i) = hht_tmp(i) + hht(i)
@@ -1290,8 +1311,8 @@ contains
         	ggt_tmp(i) = ggt_tmp(i) - ggt_tmp0
         end do
 
-!		open(unit=11,file='/home/olsij4am/prace/NOSE-debugU.dat')
-!		open(unit=12,file='/home/olsij4am/prace/NOSE-debugU2.dat')
+!		open(unit=11,file='/home/olsij4am/prace/nose-debug.dat')
+!		open(unit=12,file='/home/olsij4am/prace/nose-debug2.dat')
 
     	! write to global functions
         if (.not. present(ADD)) then
@@ -1301,8 +1322,8 @@ contains
         end if
 
 	   	do i=1,Ntt
-!			write(11,*) i*dt,real(ggt_tmp(i)),real(hht_tmp(i)),real(cct_tmp(i))
-!			write(12,*) i*dt,aimag(ggt_tmp(i)),aimag(hht_tmp(i)),aimag(cct_tmp(i))
+!			write(11,*) i*dt,real(cct_tmp(i)),real(hht_tmp(i)),real(ggt_tmp(i))
+!			write(12,*) i*dt,aimag(cct_tmp(i)),aimag(hht_tmp(i)),aimag(ggt_tmp(i))
 
         	cct(i) = cct_tmp(i) + cct(i)
     	    hht(i) = hht_tmp(i) + hht(i)

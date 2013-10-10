@@ -3352,20 +3352,22 @@ namespace eval NOSE_ssf {
 
 						BROWNIAN_LOW_TEMP_HIERARCHY {
 							set lpar $arg;
-							if { [llength $lpar] == 2 } {
+							if { [llength $lpar] == 3 } {
 								set par(1) [lindex $lpar 0];
 								set par(2) [lindex $lpar 1];									
-								putBrownianLowTempHierarchyMode $par(1) $par(2);
+								set par(3) [lindex $lpar 2];	
+								putBrownianLowTempHierarchyMode $par(1) $par(2) $par(3);
 								set state type;
 							}	
 						}
 						
 						BROWNIAN_LOW_TEMP_HIERARCHY_DELTA {
 							set lpar $arg;
-							if { [llength $lpar] == 2 } {
+							if { [llength $lpar] == 3 } {
 								set par(1) [lindex $lpar 0];
-								set par(2) [lindex $lpar 1];									
-								putBrownianLowTempHierarchyDeltaMode $par(1) $par(2);
+								set par(2) [lindex $lpar 1];
+								set par(3) [lindex $lpar 2];
+								putBrownianLowTempHierarchyDeltaMode $par(1) $par(2) $par(3);
 								set state type;
 							}	
 						}
@@ -3457,22 +3459,22 @@ namespace eval NOSE_ssf {
 
 	}
 
-	proc putBrownianLowTempHierarchyMode { reorg tc } {
+	proc putBrownianLowTempHierarchyMode { reorg tc omega } {
 
 		putString BROWNIAN_LOW_TEMP_HIERARCHY;
 	
-		set ll [list v 2 r [list $reorg $tc]]
+		set ll [list v 3 r [list $reorg $tc $omega]]
 		foreach a $ll {
 			NOSE_conf::print $a;
 		}	
 
 	}
 	
-	proc putBrownianLowTempHierarchyDeltaMode { reorg tc } {
+	proc putBrownianLowTempHierarchyDeltaMode { reorg tc omega } {
 
 		putString BROWNIAN_LOW_TEMP_HIERARCHY_DELTA;
 	
-		set ll [list v 2 r [list $reorg $tc]]
+		set ll [list v 3 r [list $reorg $tc $omega]]
 		foreach a $ll {
 			NOSE_conf::print $a;
 		}	
@@ -4324,10 +4326,10 @@ for { set i 1 } { $i <= $NOSE_ssf::goft_count } { incr i } {
 			BROWNIAN_NO_MATSUBARA { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::correlation_time($i,$j)];
 					   NOSE_ssf::putGoftMode BROWNIAN_NO_MATSUBARA $parms; }
 
-			BROWNIAN_LOW_TEMP_HIERARCHY { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::correlation_time($i,$j)];
+			BROWNIAN_LOW_TEMP_HIERARCHY { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::correlation_time($i,$j)  $NOSE_ssf::brownian_omega($i,$j)];
 					   NOSE_ssf::putGoftMode BROWNIAN_LOW_TEMP_HIERARCHY $parms; }
 
-			BROWNIAN_LOW_TEMP_HIERARCHY_DELTA { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::correlation_time($i,$j)];
+			BROWNIAN_LOW_TEMP_HIERARCHY_DELTA { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::correlation_time($i,$j)  $NOSE_ssf::brownian_omega($i,$j)];
 					   NOSE_ssf::putGoftMode BROWNIAN_LOW_TEMP_HIERARCHY_DELTA $parms; }
 			
 			BROWNIAN_UNDERDAMPED { set parms [list $NOSE_ssf::reorganization_energy($i,$j)  $NOSE_ssf::brownian_omega($i,$j)];
