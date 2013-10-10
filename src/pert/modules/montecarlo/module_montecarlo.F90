@@ -689,9 +689,11 @@ module module_montecarlo
         logical      :: debug_bool
         real(dp)     :: r, norm
 
-        integer(i1b), dimension(2,STEPS*RUNS) :: draha
+        integer(i1b), dimension(2,STEPS*RUNS, MICROGROUP) :: draha
 !@!        integer(i1b), dimension(TRAJECTORIES_STORED,2,STEPS*RUNS) :: depository_tmp
-        complex(dpc), dimension(STEPS*RUNS)   :: factor, Gfactor, Ifactor
+        complex(dpc), dimension(STEPS*RUNS, MICROGROUP)   :: factor, Gfactor, Ifactor
+        complex(dpc), dimension(Nl,Nl,STEPS*RUNS, MICROGROUP) :: rho_micro
+
         complex(dpc) :: factor_in
         complex(dpc), dimension(Nl, Nl) :: rho_init
         character(len=256) :: buff
@@ -717,6 +719,8 @@ module module_montecarlo
             do i_m=1, TRAJECTORIES/MICROGROUP
             do m=1, MICROGROUP
                 i = (i_m-1)*MICROGROUP+m ! denotes number of trajectories
+
+                write(*,*) m, i_m, MICROGROUP
 
 
                 call random_number(r)
@@ -754,13 +758,13 @@ module module_montecarlo
 !@!                    end if
 !@!
 !@!
-!@!                    call generate_trajectory(draha, factor, rho_init(a,b), a, b, i0, j0, run)
+!@!                    call generate_trajectory(draha(:,:,m), factor, rho_init(a,b), a, b, i0, j0, run)
 !@!
 !@!                else
                     rho_init(:,:) = 0.0_dp
                     rho_init(i0,j0) = 1.0_dp
 
-                    call generate_trajectory(draha, factor, 1.0_dp, i0, j0, i0, j0, run)
+                    call generate_trajectory(draha(:,:,m), factor(:,m), 1.0_dp, i0, j0, i0, j0, run)
 
                     if(i_m == TRAJECTORIES/MICROGROUP .and. m == MICROGROUP) then
                         p_of_no_jump_measured = abs(rho(i0,j0,1))/i
@@ -777,30 +781,30 @@ module module_montecarlo
 
                 if(g_functions) then
                 if(exciton_basis_unraveling) then
-                    call calculate_Gfactor_from_trajectory_history_general_basis(draha,cmplx(1,0,dp),Gfactor)
+                    call calculate_Gfactor_from_trajectory_history_general_basis(draha(:,:,m),cmplx(1,0,dp),Gfactor(:,m))
                 else
-                    call calculate_Gfactor_from_trajectory_history(draha,cmplx(1,0,dp),Gfactor)
+                    call calculate_Gfactor_from_trajectory_history(draha(:,:,m),cmplx(1,0,dp),Gfactor(:,m))
                 end if
                 end if
 
-                call calculate_Ifactor_from_trajectory_history(draha,cmplx(1,0,dp),Ifactor)
-                Ifactor = Ifactor/Ifactor(STEPS*(run-1)+1)    ! coherent at the restart point
-                Ifactor(1:STEPS*(run-1)) = 0.0_dp                ! zero before it
+                call calculate_Ifactor_from_trajectory_history(draha(:,:,m),cmplx(1,0,dp),Ifactor(:,m))
+                Ifactor(:,m) = Ifactor(:,m)/Ifactor(STEPS*(run-1)+1,m)    ! coherent at the restart point
+                Ifactor(1:STEPS*(run-1),m) = 0.0_dp                ! zero before it
 
                 do j=1, STEPS
-                    if(maxval(draha(:,j+STEPS*(run-1))) > 0 .and. minval(draha(:,j+STEPS*(run-1))) <= Nl) then
-                        rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) =             &
-                        rho(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))               &
-                        + factor(j+STEPS*(run-1))*conjg(Gfactor(j+STEPS*(run-1)))*Ifactor(j+STEPS*(run-1))
+                    if(maxval(draha(:,j+STEPS*(run-1),m)) > 0 .and. minval(draha(:,j+STEPS*(run-1),m)) <= Nl) then
+                        rho(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1)) =             &
+                        rho(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1))               &
+                        + factor(j+STEPS*(run-1),m)*conjg(Gfactor(j+STEPS*(run-1),m))*Ifactor(j+STEPS*(run-1),m)
 
-                        rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) =    &
-                        rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))      &
-                        + factor(j+STEPS*(run-1))*Ifactor(j+STEPS*(run-1))
+                        rho_coherent(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1)) =    &
+                        rho_coherent(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1))      &
+                        + factor(j+STEPS*(run-1),m)*Ifactor(j+STEPS*(run-1),m)
                     end if
                 end do
 
 !@!                if(i <= TRAJECTORIES_STORED) then
-!@!                    depository_tmp(i,:,:) = draha
+!@!                    depository_tmp(i,:,:) = draha(:,:,m)
 !@!                end if
 
             end do
@@ -819,13 +823,8 @@ module module_montecarlo
                 else
                     do jj=1, Nl
 !!!                THERE WAS POSSIBILITY OF NORMALIZATION PROBLEMS
-!                        if(abs(rho_init(jj,1)) > 1e-3 .and. abs(rho(jj,1,1+STEPS*(run-1))) > 1e-3) then
-!                            rho(jj,1,j+STEPS*(run-1)) = rho(jj,1,j+STEPS*(run-1))/abs(rho_coherent(jj,1,1+STEPS*(run-1))/rho_init(jj,1))
-!                            rho_coherent(jj,1,j+STEPS*(run-1)) = rho_coherent(jj,1,j+STEPS*(run-1))/abs(rho_coherent(jj,1,1+STEPS*(run-1))/rho_init(jj,1))
-!                        else
-                            rho(jj,1,j+STEPS*(run-1)) = rho(jj,1,j+STEPS*(run-1))/norm
-                            rho_coherent(jj,1,j+STEPS*(run-1)) = rho_coherent(jj,1,j+STEPS*(run-1))/norm
-!                        end if
+                       rho(jj,1,j+STEPS*(run-1)) = rho(jj,1,j+STEPS*(run-1))/norm
+                       rho_coherent(jj,1,j+STEPS*(run-1)) = rho_coherent(jj,1,j+STEPS*(run-1))/norm
                     end do
                 end if
             end do
