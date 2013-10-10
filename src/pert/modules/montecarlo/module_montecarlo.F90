@@ -628,7 +628,7 @@ module module_montecarlo
         RUNS = 1 !gt(2)
         jumps_in_one_run = gt(3)
 
-        MICROGROUP = TRAJECTORIES/(10**Nt(3))
+        MICROGROUP = Nt(3)
 
         Nl = iblocks(1,1)%eblock%N1
         STEPS = Nt(1)
@@ -692,7 +692,7 @@ module module_montecarlo
         integer(i1b), dimension(2,STEPS*RUNS, MICROGROUP) :: draha
 !@!        integer(i1b), dimension(TRAJECTORIES_STORED,2,STEPS*RUNS) :: depository_tmp
         complex(dpc), dimension(STEPS*RUNS, MICROGROUP)   :: factor, Gfactor, Ifactor
-        complex(dpc), dimension(Nl,Nl,STEPS*RUNS, MICROGROUP) :: rho_micro
+        complex(dpc), dimension(Nl,Nl,STEPS*RUNS, MICROGROUP) :: rho_micro, rho_coherent_micro
 
         complex(dpc) :: factor_in
         complex(dpc), dimension(Nl, Nl) :: rho_init
@@ -716,11 +716,15 @@ module module_montecarlo
                             ', STEPS', STEPS, ', timeStep ' , timeStep
             call print_log_message(trim(buff), 5)
 
+            rho_micro = 0.0_dp
+            rho_coherent_micro = 0.0_dp
+
             do i_m=1, TRAJECTORIES/MICROGROUP
+            !$OMP PARALLEL DO
             do m=1, MICROGROUP
                 i = (i_m-1)*MICROGROUP+m ! denotes number of trajectories
 
-                write(*,*) m, i_m, MICROGROUP
+                !write(*,*) m, i_m, MICROGROUP
 
 
                 call random_number(r)
@@ -793,12 +797,12 @@ module module_montecarlo
 
                 do j=1, STEPS
                     if(maxval(draha(:,j+STEPS*(run-1),m)) > 0 .and. minval(draha(:,j+STEPS*(run-1),m)) <= Nl) then
-                        rho(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1)) =             &
-                        rho(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1))               &
+                        rho_micro(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1),m) =             &
+                        rho_micro(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1),m)               &
                         + factor(j+STEPS*(run-1),m)*conjg(Gfactor(j+STEPS*(run-1),m))*Ifactor(j+STEPS*(run-1),m)
 
-                        rho_coherent(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1)) =    &
-                        rho_coherent(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1))      &
+                        rho_coherent_micro(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1),m) =    &
+                        rho_coherent_micro(draha(1,j+STEPS*(run-1),m),draha(2,j+STEPS*(run-1),m),j+STEPS*(run-1),m)      &
                         + factor(j+STEPS*(run-1),m)*Ifactor(j+STEPS*(run-1),m)
                     end if
                 end do
@@ -808,6 +812,13 @@ module module_montecarlo
 !@!                end if
 
             end do
+            !$OMP END PARALLEL DO
+            end do
+
+            ! collect parallel results
+            do m=1, MICROGROUP
+              rho(:,:,:) = rho(:,:,:) +  rho_micro(:,:,:,m)
+              rho_coherent(:,:,:) = rho_coherent(:,:,:) +  rho_coherent_micro(:,:,:,m)
             end do
 
             if(max(1+STEPS*(run-1),1+STEPS*(run-1) + 5) > size(rho_coherent,3)) then
@@ -959,8 +970,8 @@ module module_montecarlo
 
         else
 
-            do t_index=1,size(all_hoft(iblocks(1,1)%sblock%gindex(i))%gg)
             do i=1,NNN
+            do t_index=1,size(all_hoft(iblocks(1,1)%sblock%gindex(i))%gg)
                 gg_MC(i,i,i,i,t_index) = all_goft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
                 hh_MC(i,i,i,i,t_index) = all_hoft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
                 cc_MC(i,i,i,i,t_index) = all_coft(iblocks(1,1)%sblock%gindex(i))%gg(t_index)
