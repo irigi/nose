@@ -2764,7 +2764,7 @@ module module_montecarlo
 
         j = 1
         do while (j <= size(all_goft(i)%gg))
-            write(22,*) gt(1)*dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
+            write(22,*) dt*(j-1),' ',real(all_goft(i)%gg(j)),' ',aimag(all_goft(i)%gg(j))
             j = j + 1
         end do
 
@@ -2777,7 +2777,7 @@ module module_montecarlo
 
         j = 1
         do while (j <= size(all_hoft(i)%gg))
-            write(22,*) gt(1)*dt*(j-1),' ',real(all_hoft(i)%gg(j)),' ',aimag(all_hoft(i)%gg(j))
+            write(22,*) dt*(j-1),' ',real(all_hoft(i)%gg(j)),' ',aimag(all_hoft(i)%gg(j))
             j = j + 1
         end do
 
@@ -2790,7 +2790,7 @@ module module_montecarlo
 
         j = 1
         do while (j <= size(all_goft(i)%gg))
-            write(22,*) gt(1)*dt*(j-1),' ',real(all_coft(i)%gg(j)),' ',aimag(all_coft(i)%gg(j))
+            write(22,*) dt*(j-1),' ',real(all_coft(i)%gg(j)),' ',aimag(all_coft(i)%gg(j))
             j = j + 1
         end do
 
