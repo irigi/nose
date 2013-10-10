@@ -692,7 +692,6 @@ module module_montecarlo
         integer(i1b), dimension(2,STEPS*RUNS) :: draha
 !@!        integer(i1b), dimension(TRAJECTORIES_STORED,2,STEPS*RUNS) :: depository_tmp
         complex(dpc), dimension(STEPS*RUNS)   :: factor, Gfactor, Ifactor
-        complex(dpc), dimension(STEPS*RUNS)   :: fIfGf_cor, Gf_cor, f_cor, If_cor, fIf_cor
         complex(dpc) :: factor_in
         complex(dpc), dimension(Nl, Nl) :: rho_init
         character(len=256) :: buff
@@ -703,12 +702,6 @@ module module_montecarlo
 
         factor_in = 1.0_dp
         Gfactor = cmplx(1,0,dpc)
-
-        fIfGf_cor   = 0.0_dp
-        Gf_cor      = 0.0_dp
-        f_cor       = 0.0_dp
-        If_cor      = 0.0_dp
-        fIf_cor     = 0.0_dp
 
         write(buff,'(f12.3)') jump_probability_total()*timeStep
         buff = 'Averagely ' // trim(buff) // ' jumps in one run'
@@ -803,17 +796,6 @@ module module_montecarlo
                         rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1)) =    &
                         rho_coherent(draha(1,j+STEPS*(run-1)),draha(2,j+STEPS*(run-1)),j+STEPS*(run-1))      &
                         + factor(j+STEPS*(run-1))*Ifactor(j+STEPS*(run-1))
-
-                        fIfGf_cor(j+STEPS*(run-1))    = fIfGf_cor(j+STEPS*(run-1)) +         &
-                            factor(j+STEPS*(run-1))*conjg(Gfactor(j+STEPS*(run-1)))*Ifactor(j+STEPS*(run-1))
-                        Gf_cor(j+STEPS*(run-1))        = Gf_cor(j+STEPS*(run-1)) +           &
-                            conjg(Gfactor(j+STEPS*(run-1)))
-                        f_cor(j+STEPS*(run-1))         = f_cor(j+STEPS*(run-1)) +            &
-                            factor(j+STEPS*(run-1))
-                        If_cor(j+STEPS*(run-1))        = If_cor(j+STEPS*(run-1)) +           &
-                            Ifactor(j+STEPS*(run-1))
-                        fIf_cor(j+STEPS*(run-1))    = fIf_cor(j+STEPS*(run-1)) +             &
-                            factor(j+STEPS*(run-1))*Ifactor(j+STEPS*(run-1))
                     end if
                 end do
 
