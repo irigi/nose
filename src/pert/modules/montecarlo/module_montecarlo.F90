@@ -61,7 +61,7 @@ module module_montecarlo
     complex, dimension(:), allocatable     :: MC_polar_1
     real, dimension(:), allocatable        :: MC_spect_abs
 
-    logical, parameter :: only_coherences = .true.
+    logical, parameter :: only_coherences = .false.
 
     real(dp), private :: dom, oma
     integer(i4b), private :: NFFT, padfac
@@ -175,6 +175,8 @@ module module_montecarlo
             call print_warning_message(cbuff, -1)
         end if
 
+        write(cbuff, '(A L)') "Optical coherences ", only_coherences
+        call print_log_message(cbuff, 5)
         write(cbuff, '(A L)') "G-functions ", g_functions
         call print_log_message(cbuff, 5)
         write(cbuff, '(A L)') "Exciton basis ", use_exciton_basis
@@ -289,7 +291,11 @@ module module_montecarlo
                     endif
 
                 else
-                    evops(1,1)%Ueg(k,l, r,s, INT((i-1)) + 1) = 0.0_dp
+                    if(only_coherences) then
+                        evops(1,1)%Ueg(k,l, r,s, INT((i-1)) + 1) = 0.0_dp
+                    else
+                        evops(1,1)%Uee(k,l, r,s, INT((i-1)) + 1) = 0.0_dp
+                    endif
                 end if
 
                 !write(*,*) evops(1,1)%Ueg(k,l, r,s, INT((i-1)) + 1), closest_i
@@ -554,6 +560,8 @@ module module_montecarlo
 
             call write_evolution_operators('O')
             !call write_redfield_tensor('O')
+        else
+            call write_evolution_operators('E')
         end if
 
         !*************************************************************
@@ -623,7 +631,7 @@ module module_montecarlo
             call init_random_seed()
         end if
 
-        TRAJECTORIES = 10000*Nt(2)
+        TRAJECTORIES = 1000*Nt(2)
 !        TRAJECTORIES_STORED = min(TRAJECTORIES, 1000)
         RUNS = 1 !gt(2)
         jumps_in_one_run = gt(3)
@@ -815,6 +823,8 @@ module module_montecarlo
             !$OMP END PARALLEL DO
             end do
 
+            write(*,*) 'A'
+
             ! collect parallel results
             do m=1, MICROGROUP
               rho(:,:,:) = rho(:,:,:) +  rho_micro(:,:,:,m)
@@ -826,19 +836,26 @@ module module_montecarlo
             end if
 
             !norm = abs(maxval(abs(rho_coherent(:,1,1+STEPS*(run-1):STEPS*run))))
-            norm = abs(maxval(abs(rho_coherent(:,1,1+STEPS*(run-1):1+STEPS*(run-1) + 5)))) ! do not include the end
-            do j=STEPS, 1, -1
-                if(.not. only_coherences) then
-                    rho(:,:,j+STEPS*(run-1)) = rho(:,:,j+STEPS*(run-1))/trace(rho(:,:,j+STEPS*(run-1)))
-                    rho_coherent(:,:,j+STEPS*(run-1)) = rho_coherent(:,:,j+STEPS*(run-1))/trace(rho_coherent(:,:,j+STEPS*(run-1)))
-                else
-                    do jj=1, Nl
-!!!                THERE WAS POSSIBILITY OF NORMALIZATION PROBLEMS
-                       rho(jj,1,j+STEPS*(run-1)) = rho(jj,1,j+STEPS*(run-1))/norm
-                       rho_coherent(jj,1,j+STEPS*(run-1)) = rho_coherent(jj,1,j+STEPS*(run-1))/norm
-                    end do
-                end if
-            end do
+            norm = abs(maxval(abs(rho_coherent(:,:,1+STEPS*(run-1):1+STEPS*(run-1) + 5)))) ! do not include the end
+            write(*,*) 'norm:',norm
+            if(norm == 0.0) then
+              call print_error_message(-1,'Montecarlo zero norm!')
+            end if
+            !do j=STEPS, 1, -1
+                !if(.not. only_coherences) then
+                !    rho(:,:,j+STEPS*(run-1)) = rho(:,:,j+STEPS*(run-1))/trace(rho(:,:,j+STEPS*(run-1)))
+                !    rho_coherent(:,:,j+STEPS*(run-1)) = rho_coherent(:,:,j+STEPS*(run-1))/trace(rho_coherent(:,:,j+STEPS*(run-1)))
+                !else
+                !    do jj=1, Nl
+                !       rho(jj,1,j+STEPS*(run-1)) = rho(jj,1,j+STEPS*(run-1))/norm
+                !       rho_coherent(jj,1,j+STEPS*(run-1)) = rho_coherent(jj,1,j+STEPS*(run-1))/norm
+                !    end do
+                !end if
+            !end do
+
+             rho = rho/norm
+             rho_coherent = rho_coherent/norm
+
 
 !            trajectory_depository = depository_tmp
 !            trajectory_depository = 0
