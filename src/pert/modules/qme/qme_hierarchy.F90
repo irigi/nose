@@ -104,7 +104,7 @@ module qme_hierarchy
     real(dp), allocatable, private :: CholeskyCF(:,:)
     real(dp), allocatable, private :: oonoise(:)
 
-    integer(i4b), private:: tierstart, tier, kk1, kk2, currentindex, nnn, n, m, nnp, mp, w, wp
+    integer(i4b), private:: tierstart, tier, currentindex
     integer(i4b), private:: dir1, dir2, dir3, dir4, pol
     logical, private:: permexists
     integer(i4b), allocatable, private:: currentperm(:)
@@ -308,7 +308,6 @@ module qme_hierarchy
 
     subroutine fill_evolution_superoperator_hierarchy(type)
         character, intent(in) :: type
-        integer(i4b) :: i, j
 
         call print_log_message("fill_evolution_superoperator_hierarchy called",5)
         if(submethod1 == 'E') then
@@ -320,7 +319,6 @@ module qme_hierarchy
 
     subroutine arend_main()
       character(len=128) :: buff
-      integer(i4b)       :: b
 
       call read_config_file()
       call arend_init()
@@ -356,13 +354,12 @@ module qme_hierarchy
 
     subroutine arend_mancal_valkunas_quantum_light2(type)
       character, intent(in)  :: type
-      character(len=128)     :: buff, buff2
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept2) :: rho_physical
       complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
       real(dp)     :: time1, time2, time
       complex(dpc) :: intFactor
-      integer(i4b) :: nnt, s, s2, nin, nnt1, nnt2
+      integer(i4b) :: nnt, s, s2, nin, nnt1, nnt2, nnn
 
       call arend_initmult1()
       call arend_initmult2()
@@ -487,11 +484,9 @@ module qme_hierarchy
 
     subroutine arend_bloch_equations_CW(type)
       character, intent(in)  :: type
-      character(len=128)     :: buff, buff2
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
-      complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
-      real(dp)     :: time1, time2, time
-      integer(i4b) :: s, s2, nnt1, nin
+      real(dp)     :: time1
+      integer(i4b) :: s, s2, nnt1, nin, nnn
 
 
       call arend_initmult1()
@@ -564,11 +559,9 @@ module qme_hierarchy
 
     subroutine arend_light_hierarchy(type)
       character, intent(in)  :: type
-      character(len=128)     :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys)              :: rhotmp
-      complex(dpc), dimension(Nhier+1, Nsys, Nsys)     :: rhotmp2
-      real(dp)     :: time1, time2, time
-      integer(i4b) :: aa,bb, nin, nnt1, s, s2
+      real(dp)     :: time1
+      integer(i4b) :: nin, nnt1, s, s2, nnn
 
       !call arend_initmult1_lowtemp()
       !call arend_initmult2_lowtemp()
@@ -628,10 +621,10 @@ module qme_hierarchy
 
 
 
-        if(time1 > 1) then
-            lambda(Nsys) = 0.0_dp
-            V(Nsys,:,:) = 0.0_dp
-        end if
+!        if(time1 > 1) then
+!            lambda(NSB) = 0.0_dp
+!            V(NSB,:,:) = 0.0_dp
+!        end if
 
         ! propagate t1
         do nin = 1, Ntimestept1in
@@ -646,12 +639,10 @@ module qme_hierarchy
 
     subroutine arend_bloch_equations_noise(type)
       character, intent(in)  :: type
-      character(len=128)     :: buff, buff2
       complex(dpc), dimension(0:Nsys, 0:Nsys)              :: rhotmp
       complex(dpc), dimension(0:Nsys, 0:Nsys, Ntimestept1) :: rho_physical
-      complex(dpc), dimension(Nhier+1, 0:Nsys, 0:Nsys)     :: rhotmp2
-      real(dp)     :: time1, time2, time
-      integer(i4b) :: nnoise, s, s2, nin, nnt1
+      real(dp)     :: time1
+      integer(i4b) :: nnoise, s, s2, nin, nnt1, nnn
       logical      :: write_this_loop
 
 
@@ -755,7 +746,7 @@ module qme_hierarchy
 
       character(len=128) :: buff, buff2
       complex(dpc), dimension(Nsys, Nsys) :: rhotmp
-      integer(i4b) :: s, s2, nnt1, nin, nnt2
+      integer(i4b) :: s, s2, nnt1, nin, nnt2, nnn
 
       do s=1, Nsys
       do s2=1, Nsys
@@ -853,7 +844,7 @@ module qme_hierarchy
       integer(i4b), intent(in) :: i0
 
       character(len=128) :: buff
-      integer(i4b) :: s, s2, nnt1, nin
+      integer(i4b) :: s, nnt1, nin, nnn
 
       do s=1, Nsys
         write(buff, '(I2)') s
@@ -944,7 +935,7 @@ module qme_hierarchy
 
     subroutine arend_init()
       character(len=256) :: buff
-      integer(i4b)       :: j, s, s2, tt
+      integer(i4b)       :: j, tt
 
       if(light_hierarchy) then ! include ground state into system
         Nsys = N1_from_type('E') + 1
@@ -1160,7 +1151,7 @@ module qme_hierarchy
 
 
     subroutine arend_fill_parameters()
-      integer(i4b) :: s, s2, nnt1, nin
+      integer(i4b) :: s, s2
 
       character(len=256) :: buff
 
@@ -1292,9 +1283,7 @@ module qme_hierarchy
     end subroutine arend_fill_parameters
 
     subroutine arend_init2()
-      character(len=128) :: buff
-
-      integer(i4b) :: s, s2, nnt1, nin
+      integer(i4b) :: s, s2, nnn, kk1, kk2
 
       ! build index
       tierstart = 1 ! first element of the current tier
@@ -1384,7 +1373,7 @@ module qme_hierarchy
     end subroutine arend_init2
 
     subroutine arend_2D()
-      integer(i4b) :: s, s2, nnt1, nin, nnt2, nnt3, w1, w2
+      integer(i4b) :: s, s2, nnt1, nin, nnt2, nnt3, w1, w2, nnn, w
 
       ! REPHASING
 
@@ -1778,7 +1767,7 @@ module qme_hierarchy
 
     function numpermt(tier) ! number of permutations in tier
       integer(i4b), intent(in):: tier
-      integer(i4b) :: numpermt, tmp
+      integer(i4b) :: numpermt
           numpermt = int(factorial(Nind+tier-1)/(factorial(Nind-1)*factorial(tier)))
     end function numpermt
 
@@ -2077,12 +2066,12 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,:)
       real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:)
-      integer:: n,j, nnp
+      integer:: n,j
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
       result(:,:) = 0.0
 
-      !$OMP PARALLEL DO
+      !$OMP PARALLEL DO PRIVATE(j)
       do n = 1, Nhier
 
         result(n,:) = result(n,:) + MATMUL(opLeft1(n,:,:), rhoin(n,:))
@@ -2156,12 +2145,12 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,:,:)
       real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:,:)
-      integer(i4b) :: n, j, nnp, s, s2
+      integer(i4b) :: n, j, s, s2
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
       result(:,:,:) = 0.0
 
-      !$OMP PARALLEL DO
+      !$OMP PARALLEL DO PRIVATE(s,s2,j)
       do n = 1, Nhier
         result(n,:,:) = result(n,:,:) + MATMUL(opLeft2(n,:,:), rhoin(n,:,:))
         result(n,:,:) = result(n,:,:) + MATMUL(rhoin(n,:,:), opRight2(n,:,:))
@@ -2209,12 +2198,13 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,:,:)
       real(dp), intent(in)      :: tt ! this is a dummy parameter to satisfy ode_rk4 function template
       complex(dpc), intent(out) :: result(:,:,:)
-      integer(i4b) :: n, j, nnp, s
+      integer(i4b) :: n, j, m, s
       complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
       complex(dpc) :: musum, jsum
 
       result(:,:,:) = 0
 
+      !$OMP PARALLEL DO PRIVATE(j,m,s,jsum,musum)
       do n=1, Nhier
         ! HS
         result(n,:,:) = result(n,:,:) - iconst*MATMUL(HS, rhoin(n,:,:)) + iconst*MATMUL(rhoin(n,:,:), HS)
@@ -2261,6 +2251,7 @@ module qme_hierarchy
       end if
 
       end do
+      !$OMP END PARALLEL DO
     end subroutine arend_Lmult2_LowTemp
 
     subroutine arend_propagate2_LowTemp (dt)
@@ -2278,7 +2269,7 @@ module qme_hierarchy
       complex(dpc), intent(in)  :: rhoin(:,0:,0:)
       real(dp), intent(in)      :: ttt ! time (fs)
       complex(dpc), intent(out) :: result(:,0:,0:)
-      integer(i4b) :: n,j, nnp, s, s2
+      integer(i4b) :: n, s, s2, j
       complex(dpc), parameter   :: iconst = dcmplx(0.0, 1.0)
       real(dp)                  :: EE, tt
 
@@ -2287,7 +2278,7 @@ module qme_hierarchy
       tt = ttt
 
       if(bloch_term) then
-        !$OMP PARALLEL DO
+        !$OMP PARALLEL DO PRIVATE(s,s2,j)
         do n = 1, Nhier
           do s=1, Nsys
             result(n,0,0) = result(n,0,0) - iconst*cos(central_frequency*tt)*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
@@ -2309,7 +2300,7 @@ module qme_hierarchy
       if(noise_term) then
         tt = min(max(0.5_dp, tt), dt*Ntimestept1*Ntimestept1In - 0.5)
 
-        !$OMP PARALLEL DO
+        !$OMP PARALLEL DO PRIVATE(s,s2,j)
         do n = 1, Nhier
           do s=1, Nsys
             result(n,0,0) = result(n,0,0) - iconst*oonoise(int(tt/dt+1))*exp(-iconst*rwa*tt)*mu(s, 1)*rhoin(n,s,0)*EE               &
@@ -2329,7 +2320,7 @@ module qme_hierarchy
       end if
 
       ! Lmult1 part
-      !$OMP PARALLEL DO
+      !$OMP PARALLEL DO PRIVATE(s,s2,j)
       do n = 1, Nhier
         result(n,1:,0) = result(n,1:,0) + MATMUL(opLeft1(n,:,:), rhoin(n,1:,0))
 
@@ -2346,7 +2337,7 @@ module qme_hierarchy
       !$OMP END PARALLEL DO
 
       ! Lmult2 part
-      !$OMP PARALLEL DO
+      !$OMP PARALLEL DO PRIVATE(s,s2,j)
       do n = 1, Nhier
         result(n,1:,1:) = result(n,1:,1:) + MATMUL(opLeft2(n,:,:), rhoin(n,1:,1:))
         result(n,1:,1:) = result(n,1:,1:) + MATMUL(rhoin(n,1:,1:), opRight2(n,:,:))
@@ -2386,14 +2377,14 @@ module qme_hierarchy
     complex(dpc), intent(in)  :: rhoin(:,:,:)
     real(dp), intent(in)      :: tt ! this is completely unneccessary parameter to satisfy ode_rk4 function template
     complex(dpc), intent(out) :: result(:,:,:)
-    integer:: n,j, nnp
+    integer:: n,j
     complex(dpc), parameter:: iconst = dcmplx(0.0, 1.0)
 
 
     result(:,:,:) = 0.0
 
 
-    !$OMP PARALLEL DO
+    !$OMP PARALLEL DO PRIVATE(j)
     do n = 1, Nhier
 
       result(n,:,:) = result(n,:,:) + MATMUL(opLeft3(n,:,:), rhoin(n,:,:))
@@ -2490,7 +2481,6 @@ module qme_hierarchy
       real(dpc), intent(out) :: out(:)
 
       real(dp)     :: oo(size(out))
-      integer(i4b) :: b
 
       call random_Normal(oo)
 
