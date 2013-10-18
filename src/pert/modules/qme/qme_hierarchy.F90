@@ -69,6 +69,7 @@ module qme_hierarchy
     logical, private  :: bloch_term        = .false.
     logical, private  :: light_hierarchy   = .false.
     logical, private  :: noise_term        = .false.
+    logical, private  :: single_correlated_bath = .false.
     integer(i4b)      :: realizations      = 0
     integer(i4b)      :: phonon_matsubara  = 0
     integer(i4b)      :: light_matsubara   = 0
@@ -264,6 +265,14 @@ module qme_hierarchy
               normalize_trace = .true.
             else
               normalize_trace = .false.
+            end if
+
+          elseif(trim(adjustl(buff)) == 'singleCorrelatedBath') then
+            write(*,*) buff, int(value)
+            if(int(value) == 1) then
+              single_correlated_bath = .true.
+            else
+              single_correlated_bath = .false.
             end if
 
           elseif(trim(adjustl(buff)) == 'blochTerm') then
@@ -594,6 +603,15 @@ module qme_hierarchy
         write(*,*) rho2(1, 1, :)
         write(*,*) rho2(1, 2, :)
         write(*,*) rho2(1, Nsys, :)
+!        write(*,*) '   ***'
+!        write(*,*) V(1, 1, :)
+!        write(*,*) V(1, 2, :)
+!        write(*,*) V(1, Nsys, :)
+!        write(*,*) '   ***', NSB, Nsys
+!        write(*,*) V(Nsys, 1, :)
+!        write(*,*) V(Nsys, 2, :)
+!        write(*,*) V(Nsys, Nsys, :)
+!        write(*,*)
         call flush()
 
                   ! print outcome
@@ -1221,6 +1239,14 @@ module qme_hierarchy
       ! system-bath coupling, no correlation
       do s=1, NSB
         V(s,s,s) = dcmplx(Dlong(s))
+
+        if(single_correlated_bath .and. submethod1 /= 'C') then
+          if(s == 1) then
+            V(s,1:(Nsys-1),1:(Nsys-1)) = dcmplx(Dlong(s))
+          else
+            V(s,1:(Nsys-1),1:(Nsys-1)) = 0.0_dp
+          end if
+        end if
       end do
 
       if(light_hierarchy) then
