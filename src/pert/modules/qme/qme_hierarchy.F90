@@ -64,12 +64,14 @@ module qme_hierarchy
     real(dp), private :: max_light_time    = 1e9
     real(dp), private :: global_relax_rate = 0
     real(dp), private :: bloch_strength    = 0
+    real(dp), private :: bath_correlation  = 0
     logical, private  :: gaussian_pulse    = .false.
     logical, private  :: normalize_trace   = .false.
     logical, private  :: bloch_term        = .false.
     logical, private  :: light_hierarchy   = .false.
     logical, private  :: noise_term        = .false.
-    logical, private  :: single_correlated_bath = .false.
+    logical, private  :: correlated_bath   = .false.
+    logical, private  :: delta_excitation  = .false.
     integer(i4b)      :: realizations      = 0
     integer(i4b)      :: phonon_matsubara  = 0
     integer(i4b)      :: light_matsubara   = 0
@@ -267,13 +269,26 @@ module qme_hierarchy
               normalize_trace = .false.
             end if
 
+          elseif(trim(adjustl(buff)) == 'deltaExcitation') then
+            write(*,*) buff, int(value)
+            if(int(value) == 1) then
+              delta_excitation = .true.
+            else
+              delta_excitation = .false.
+            end if
+
           elseif(trim(adjustl(buff)) == 'singleCorrelatedBath') then
             write(*,*) buff, int(value)
             if(int(value) == 1) then
-              single_correlated_bath = .true.
+              correlated_bath = .true.
             else
-              single_correlated_bath = .false.
+              correlated_bath = .false.
             end if
+
+          elseif(trim(adjustl(buff)) == 'bathCorrelation') then
+            write(*,*) buff, value
+
+            bath_correlation = value
 
           elseif(trim(adjustl(buff)) == 'blochTerm') then
             write(*,*) buff, int(value)
@@ -603,15 +618,15 @@ module qme_hierarchy
         write(*,*) rho2(1, 1, :)
         write(*,*) rho2(1, 2, :)
         write(*,*) rho2(1, Nsys, :)
-!        write(*,*) '   ***'
-!        write(*,*) V(1, 1, :)
-!        write(*,*) V(1, 2, :)
-!        write(*,*) V(1, Nsys, :)
-!        write(*,*) '   ***', NSB, Nsys
-!        write(*,*) V(Nsys, 1, :)
-!        write(*,*) V(Nsys, 2, :)
-!        write(*,*) V(Nsys, Nsys, :)
-!        write(*,*)
+        write(*,*) '   ***'
+        write(*,*) V(1, 1, :)
+        write(*,*) V(1, 2, :)
+        write(*,*) V(1, Nsys, :)
+        write(*,*) '   ***', NSB, Nsys
+        write(*,*) V(Nsys, 1, :)
+        write(*,*) V(Nsys, 2, :)
+        write(*,*) V(Nsys, Nsys, :)
+        write(*,*)
         call flush()
 
                   ! print outcome
@@ -639,10 +654,10 @@ module qme_hierarchy
 
 
 
-!        if(time1 > 1) then
-!            lambda(NSB) = 0.0_dp
-!            V(NSB,:,:) = 0.0_dp
-!        end if
+        if(time1 > 1 .and. delta_excitation) then
+            lambda(NSB) = 0.0_dp
+            V(NSB,:,:) = 0.0_dp
+        end if
 
         ! propagate t1
         do nin = 1, Ntimestept1in
@@ -1238,14 +1253,22 @@ module qme_hierarchy
 
       ! system-bath coupling, no correlation
       do s=1, NSB
-        V(s,s,s) = dcmplx(Dlong(s))
+        if(correlated_bath .and. submethod1 /= 'C') then
 
-        if(single_correlated_bath .and. submethod1 /= 'C') then
-          if(s == 1) then
-            V(s,1:(Nsys-1),1:(Nsys-1)) = dcmplx(Dlong(s))
-          else
-            V(s,1:(Nsys-1),1:(Nsys-1)) = 0.0_dp
+          ! correlated bath
+          V(s,s,s) = V(s,s,s) + dcmplx(Dlong(s))
+
+          if(s+1 <= NSB) then
+            V(s,s+1,s+1) = V(s,s+1,s+1) + dcmplx(Dlong(s)) * bath_correlation
           end if
+
+          if(s-1 > 0) then
+            V(s,s-1,s-1) = V(s,s-1,s-1) + dcmplx(Dlong(s)) * bath_correlation
+          end if
+
+        else
+          ! normal code
+          V(s,s,s) = dcmplx(Dlong(s))
         end if
       end do
 
